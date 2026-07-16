@@ -375,7 +375,8 @@ const GS = {
   lastChanceActive: false,
   rescueMove: null,
   rescueMoveText: '',
-  // -- Popups & tutorial --
+  // -- Popups & tutorial
+  popupQueue: [],
   popupActive: false,
   popupTitle: '',
   popupText: '',
@@ -698,6 +699,7 @@ function reset(){
   GS.lastAnnouncedLevel=1; GS.deadlockActive=false; GS.deadlockT=0; GS.popupActive=false;
   GS.lastChanceActive=false; GS.rescueMove=null; GS.rescueMoveText='';
   GS.snapAnim=null; GS.drag.on=false; GS.tut.active=false;
+  GS.popupQueue=[]; // <-- NIEUW
   GS.lastReshuffleLevel=0;
   initBoard(); GS.state=STATES.IDLE;
 }
@@ -851,6 +853,66 @@ function fxLightningBolt(x1, y1, x2, y2) {
     burst(x2, y2, '#ffd21f', 6);
 }
 
+function fxChainLightning(startX, startY, jumps, rm) {
+  let cx = startX;
+  let cy = startY;
+
+  for (let j = 0; j < jumps; j++) {
+    // 1. Zoek alle geldige, nog niet vernietigde tegels op het bord
+    const cands = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (GS.board[r][c] && !rm.has(key(c, r))) {
+          cands.push({ c, r });
+        }
+      }
+    }
+    // Als het bord (bijna) leeg is, stop dan met springen
+    if (cands.length === 0) break;
+
+    // 2. Kies een willekeurige landingsplek
+    const target = cands[rnd(cands.length)];
+    const tx = cX(target.c) + T / 2;
+    const ty = cY(target.r) + T / 2;
+
+    // Teken de hoofd-bliksemflits ernaartoe en markeer voor vernietiging
+    fxLightningBolt(cx, cy, tx, ty);
+    rm.add(key(target.c, target.r));
+    burst(tx, ty, '#ffd21f', 15);
+
+    // 3. Bepaal 3 tot 8 vakjes rondom de landing
+    const clearCount = 3 + rnd(6); 
+    const neighbors = [];
+    
+    // Scan in een straal van 2 vakjes rondom de impact
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        let nc = target.c + dc, nr = target.r + dr;
+        if (inGrid(nc, nr) && GS.board[nr][nc] && !rm.has(key(nc, nr))) {
+          neighbors.push({ c: nc, r: nr, dist: Math.hypot(dc, dr) });
+        }
+      }
+    }
+    
+    // Sorteer op afstand, zodat we vanuit de kern naar buiten wegschieten
+    neighbors.sort((a, b) => a.dist - b.dist);
+
+    // Schiet bliksem naar de dichtstbijzijnde buren en markeer ze
+    for (let i = 0; i < clearCount && i < neighbors.length; i++) {
+      let n = neighbors[i];
+      rm.add(key(n.c, n.r));
+      fxLightningBolt(tx, ty, cX(n.c) + T / 2, cY(n.r) + T / 2); // kleine vertakkingen
+    }
+
+    // Het eindpunt wordt het startpunt voor de eventuele volgende sprong
+    cx = tx;
+    cy = ty;
+  }
+  
+  GS.shake = Math.min(GS.shake + 12, 20); // Extra impact trilling
+}
+ 
 function triggerRecipe(id,pt,rm,extra){
   if(id==null||!RECIPES.some(r=>r.id===id)) return false;
   if(GS.chainRecipes.has(id)) return false; 
@@ -886,18 +948,10 @@ function triggerRecipe(id,pt,rm,extra){
       for(let r=pt.r;r<=pt.r+1;r++)for(let c=pt.c;c<=pt.c+1;c++)
         if(inGrid(c,r)&&(Object.keys(GS.acid).length<8||GS.acid[key(c,r)])) GS.acid[key(c,r)]=3;
       fxCloud(px,py,'#5dff3a'); break;
-    case 6: 
-      {
-         const cands=[];
-         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
-         for(let i=0; i<8 && cands.length; i++) {
-             const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
-             fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
-             rm.add(key(tc, tr));
-         }
-         sfx.laser(); 
-         GS.shake=10; GS.timeScale=0.3;
-      }
+    case 6:
+      fxChainLightning(px, py, 3, rm); // 3 sprongen (chain lightning)
+      sfx.laser(); 
+      GS.timeScale=0.3;
       break;
     case 8: { 
       const cand8=[];
@@ -1182,17 +1236,11 @@ function processRemovals() {
                 GS.board[r][c].t=G; burst(cX(c)+T/2,cY(r)+T/2,'#5dff3a',6); }
             }
             addText(px,py-30,'⬟ MEGA POISON','#5dff3a'); break;
-          case E: 
-             {
-               const cands=[];
-               for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
-               for(let i=0; i<8 && cands.length; i++) {
-                   const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
-                   fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
-                   rm.add(key(tc, tr));
-               }
-             }
-            sfx.laser(); addText(px,py-30,'⬟ MEGA ELECTRIC','#ffd21f'); break;
+          case E:
+             fxChainLightning(px, py, 1, rm); // 1 sprong
+             sfx.laser(); 
+             addText(px,py-30,'⬟ MEGA ELECTRIC','#ffd21f'); 
+             break;
           case V:
             collectRadius(rm,m.c,m.r,2); boom(1.2); fxRing(px,py,'#9d00ff',T*2.5);
             addText(px,py-30,'⬟ MEGA VOID','#9d00ff'); break;
@@ -1587,8 +1635,29 @@ function flyCoins(x,y,total,col){
   }
 }
 
-function showPopup(title,text,col){ GS.popupActive=true; GS.popupTitle=title; GS.popupText=text; GS.popupCol=col||'#fff'; }
-function dismissPopup(){ GS.popupActive=false; }
+function showPopup(title, text, col){ 
+  // Zet de nieuwe pop-up achteraan de wachtrij
+  GS.popupQueue.push({ title, text, col: col || '#fff' }); 
+  
+  // Als er momenteel geen pop-up in beeld is, laat deze dan direct zien
+  if(!GS.popupActive) displayNextPopup(); 
+}
+
+function displayNextPopup() {
+  if(GS.popupQueue.length > 0) {
+    const p = GS.popupQueue.shift(); // Haal de eerste uit de wachtrij
+    GS.popupActive = true;
+    GS.popupTitle = p.title;
+    GS.popupText = p.text;
+    GS.popupCol = p.col;
+  } else {
+    GS.popupActive = false; // Geen pop-ups meer over
+  }
+}
+
+function dismissPopup(){ 
+  displayNextPopup(); // In plaats van direct sluiten, kijken we of er nog een volgende is
+}
 
 function evtPos(e){
   const rect=cv.getBoundingClientRect();
