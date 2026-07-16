@@ -1,0 +1,2611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Radiant Fusion</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; background:#000; overflow:hidden; touch-action:none;
+    font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; color:#eee;
+    -webkit-user-select:none; user-select:none; overscroll-behavior:none; }
+  #wrap { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+  canvas { display:block; background:#000; touch-action:none; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; background:rgba(0,0,0,.55); backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px); z-index:10; text-align:center; }
+  .hidden { display:none !important; }
+  h1.neon { font-size:min(9vw,72px); font-weight:800; letter-spacing:.12em;
+    color:#fff; text-shadow:0 0 8px #ff2d78,0 0 24px #ff2d78,0 0 60px #ff2d78; }
+  h1.neon span { color:#7df9ff; text-shadow:0 0 8px #00cfff,0 0 24px #00cfff,0 0 60px #00cfff; }
+  .sub { margin-top:14px; color:#9fefff; font-size:min(3.4vw,20px); letter-spacing:.28em; }
+  .tap { margin-top:44px; font-size:min(4vw,24px); color:#baff5e;
+    text-shadow:0 0 10px #6dff2e; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
+  .btn { margin-top:28px; padding:14px 40px; border:2px solid #ff2d78; border-radius:14px;
+    background:rgba(255,45,120,.12); color:#ffb0d0; font-size:20px; letter-spacing:.15em;
+    box-shadow:0 0 18px rgba(255,45,120,.55), inset 0 0 12px rgba(255,45,120,.25); cursor:pointer; }
+  #modeSelect { display:flex; gap:12px; margin-top:22px; }
+  .modeBtn { padding:10px 22px; border:2px solid #556; border-radius:12px;
+    background:rgba(10,16,28,.6); color:#8aa; font-size:15px; font-weight:700;
+    letter-spacing:.1em; cursor:pointer; transition:all .15s ease; }
+  .modeBtn.active { border-color:#7df9ff; color:#7df9ff; background:rgba(0,40,60,.55);
+    box-shadow:0 0 14px rgba(0,207,255,.45); }
+  .modeDesc { max-width:min(80vw,420px); margin-top:12px; font-size:12.5px; color:#9ab;
+    letter-spacing:.02em; line-height:1.4; min-height:2.6em; }
+  #recipeBtn { position:absolute; top:10px; right:12px; z-index:9; padding:8px 16px;
+    border:1px solid #7df9ff; border-radius:10px; background:rgba(0,40,60,.45); color:#7df9ff;
+    font-size:15px; letter-spacing:.1em; box-shadow:0 0 12px rgba(0,207,255,.45); cursor:pointer; }
+  #recipes { justify-content:flex-start; padding:5vh 6vw; overflow:hidden; }
+  #recipes h2 { color:#ffd21f; text-shadow:0 0 14px #ffb300; letter-spacing:.2em; margin-bottom:14px; font-size:26px; }
+  #helpScroll { width:100%; max-width:920px; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:12px; }
+  .helpSectionTitle { color:#ffd21f; text-shadow:0 0 10px rgba(255,179,0,.6); letter-spacing:.12em;
+    font-size:16px; font-weight:700; text-align:center; margin:18px 0 8px; }
+  #elementGlossary { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
+  .eg { border:1px solid #223; border-radius:12px; padding:10px 14px; text-align:left; background:rgba(10,14,22,.72); }
+  .eg .nm { font-weight:700; font-size:15px; }
+  .eg .ds { font-size:12.5px; color:#9ab; margin-top:3px; line-height:1.35; }
+  .eg.wide { grid-column:1 / -1; }
+  #recipeList { width:100%; max-width:920px;
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-bottom:12px; }
+  .rc { border:1px solid #223; border-radius:12px; padding:10px 14px; text-align:left;
+    background:rgba(10,14,22,.72); }
+  .rc.on { border-color:#5dff3a; box-shadow:0 0 12px rgba(93,255,58,.35); }
+  .rc .nm { font-weight:700; font-size:16px; color:#5dff3a; text-shadow:0 0 8px rgba(93,255,58,.7); }
+  .rc.off .nm { color:#556; text-shadow:none; }
+  .rc .ds { font-size:13px; color:#9ab; margin-top:3px; line-height:1.35; }
+  .rc.off .ds { color:#445; }
+  #toast { position:absolute; left:50%; top:16%; transform:translateX(-50%); z-index:11;
+    padding:10px 26px; border-radius:12px; border:1px solid #ffd21f; background:rgba(30,22,0,.85);
+    color:#ffe98a; font-size:18px; letter-spacing:.08em; box-shadow:0 0 22px rgba(255,210,31,.6);
+    opacity:0; transition:opacity .25s; pointer-events:none; }
+  #over.overlay { background:rgba(0,0,0,.32); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+  #over .score { font-size:52px; color:#ff5533; text-shadow:0 0 20px #ff2200; margin-top:10px; font-weight:800; }
+  .rescueLine { margin-top:10px; max-width:min(80vw,420px); font-size:13.5px; color:#baff5e;
+    text-shadow:0 0 8px rgba(186,255,94,.5); line-height:1.4; min-height:1.2em; }
+  .credit { position:absolute; bottom:16px; right:20px; font-size:11px; letter-spacing:.15em;
+    color:rgba(255,255,255,.32); text-transform:uppercase; pointer-events:none; }
+  @media (max-width:820px){ #recipeList, #elementGlossary {grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <div id="title" class="overlay">
+    <h1 class="neon">RADIANT<br><span>FUSION</span></h1>
+    <div class="sub" id="titleBest"></div>
+    <div id="modeSelect">
+      <button class="modeBtn active" id="modeCoreBtn" data-mode="core">⚡ CORE</button>
+      <button class="modeBtn" id="modeZenBtn" data-mode="zen">🧘 ZEN</button>
+    </div>
+    <div class="modeDesc" id="modeDesc">The full survival challenge: energy management, hazards, deadlocks.</div>
+    <div class="tap">TAP TO START</div>
+    <div class="credit">Made by Coatan</div>
+  </div>
+  <button id="recipeBtn">❓ HELP</button>
+  <div id="recipes" class="overlay hidden">
+    <h2>❓ HELP</h2>
+    <div id="helpScroll">
+      <div id="elementGlossary"></div>
+      <div class="helpSectionTitle">⚗ Elemental Combinations</div>
+      <div style="max-width:640px;font-size:13px;color:#9ab;text-align:center;margin-bottom:10px;line-height:1.5;">
+        Match 6+ tiles of one element, touching a match of another element, to trigger most reactions below.
+      </div>
+      <div id="recipeList"></div>
+    </div>
+    <button class="btn" id="closeRecipes" style="margin-top:10px;">CLOSE</button>
+  </div>
+
+  <div id="helpOverlay" class="overlay hidden">
+    <h2 style="color:#7df9ff;text-shadow:0 0 14px #00cfff;letter-spacing:.15em;margin-bottom:14px;font-size:24px;">HOW TO PLAY</h2>
+    <div class="sub" style="max-width:640px;line-height:1.7;letter-spacing:.03em;font-size:min(3.2vw,17px);">
+      Swipe a row or column to line up 3+ matching tiles.<br>
+      Dragging to look around is free — you only pay ⚡ energy for your final move.<br>
+      Match Electric (⚡) tiles to refill your energy — that's your main power source, not time.<br>
+      Chain cascades for huge multipliers, and discover elemental combinations for special effects!
+    </div>
+    <button class="btn" id="closeHelp" style="margin-top:28px;">GOT IT</button>
+  </div>
+
+  <div id="over" class="overlay hidden">
+    <h1 class="neon" style="color:#ff5533;text-shadow:0 0 12px #ff2200,0 0 40px #ff2200;">SHUTDOWN</h1>
+    <div class="sub" style="color:#ffe98a;">COINS EARNED</div>
+    <div class="score" id="finalScore">0</div>
+    <div class="sub" id="bestLine" style="margin-top:10px;"></div>
+    <div class="rescueLine" id="rescueLine"></div>
+    <button class="btn" id="retryBtn">TAP TO CONTINUE</button>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+'use strict';
+(function(){
+/* ================= RADIANT FUSION V2.1.1 ================= */
+
+/* ---------------------------------------------------------------------
+ * CONFIG — alle tunbare getallen op één plek. Wijzig hier, niet verspreid
+ * door de codebase. Puur data, geen logica.
+ * ------------------------------------------------------------------- */
+const CONFIG = {
+  GRID: { COLS: 10, ROWS: 8, TILE: 90 },
+  CANVAS: { W: 1280, H: 960 },
+  ELEMENTS: {
+    NAMES: ['Fire','Ice','Poison','Electric','Void','Crystal'],
+    COLORS: ['#ff3358','#2fb8ff','#5dff3a','#ffd21f','#9d00ff','#ff22a1'],
+    DARK:   ['#33060e','#04202e','#0c2606','#2b2303','#1a0033','#33001a'],
+    BASE_WEIGHTS: [120, 120, 80, 80, 45, 45],
+    VALUES:       [10, 10, 25, 25, 60, 60],
+  },
+  ENERGY: {
+    MAX: 30,
+    ELECTRIC_TILE_GAIN: 0.6,          // primaire energiebron: Electric-tegels in een match
+    VOID_TILE_COST: 1.0,              // Void-tegels leveren veel punten op, maar kosten energie
+  },
+  SLIDE_COST: {
+    GROWTH_BASE: 1.8,       // startwaarde, ongewijzigd voor beginnende spelers
+    GROWTH_PER_LEVEL: 0.35, // extra stijging per level — late-game precisie wordt belangrijker
+  },
+  SHAKE: { MAX: 7, MAX_SPECIAL: 20 },
+  HAZARDS: { MAX_HOLES: 1 },
+  HYPERDRIVE: { BOMB_CHANCE: 0.45, MAX_BOOMS_PER_TURN: 3, DURATION: 16 },
+  LEVELS: {
+    THRESHOLDS: [15000, 65000, 185000, 450000, 950000, 2100000, 4800000, 11000000, 25000000],
+    SLIDE_COST_LEVEL_CAP: 12,        // voorkomt absurde kosten in prestige-levels
+    PRESTIGE_MULT: 2.3,              // schaalfactor voorbij de vaste drempellijst
+  },
+  MATCH: {
+    REACT_MIN_GROUP: 6,
+    MAX_REACTIONS_PER_TURN: 1,
+    CORE_COMBO: 7,
+    MAX_FUSES_PER_CHAIN: 1,
+    JACKPOT_CASCADE: 13,             // multiplier ×4096+
+  },
+  DEADLOCK: { SECONDS: 5, LAST_CHANCE_MAX_SHIFT: 1 },
+  DROPS: { LUCKY_CHANCE: 0.02 },
+  VAULT: { X: 106, Y_OFFSET_FROM_BOTTOM: 150, OVERFLOW_PULSE_THRESHOLD: 0.9, OVERFLOW_SPAWN_CHANCE: 0.7 },
+  // -- Spelmodi --
+  MODE: {
+    ZEN: {
+      id: 'zen', label: 'ZEN', energyCostMult: 0, hazardsEnabled: false,
+      desc: 'No energy costs, no lethal hazards. Pure scoring, zero pressure.',
+    },
+    CORE: {
+      id: 'core', label: 'CORE', energyCostMult: 1, hazardsEnabled: true,
+      desc: 'The full survival challenge: energy management, hazards, deadlocks.',
+    },
+  },
+  // -- Pity timer (Core-modus): voorkomt een oneerlijke RNG-doodsspiraal --
+  PITY: {
+    ENERGY_FRACTION_THRESHOLD: 0.20, // onder 20% energie treedt de pity timer in werking
+    GUARANTEED_ELECTRIC_TILES: 2,    // aantal gegarandeerde ⚡-tegels bij de eerstvolgende drop
+  },
+};
+
+// -- Afgeleide/legacy const-aliassen: houdt de rest van de codebase ongewijzigd leesbaar
+//    terwijl alle waarden toch uit CONFIG komen (single source of truth). --
+const COLS=CONFIG.GRID.COLS, ROWS=CONFIG.GRID.ROWS, T=CONFIG.GRID.TILE;
+const CW=CONFIG.CANVAS.W, CH=CONFIG.CANVAS.H;
+const GW=COLS*T, GH=ROWS*T;
+const GX=(CW-GW)/2 - 25, GY=150; 
+const F=0, I=1, G=2, E=3, V=4, C=5; 
+const ENAMES=CONFIG.ELEMENTS.NAMES;
+const ECOL =CONFIG.ELEMENTS.COLORS;
+const EDARK=CONFIG.ELEMENTS.DARK;
+const rnd=(n)=>Math.floor(Math.random()*n);
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+const BASE_WEIGHTS = CONFIG.ELEMENTS.BASE_WEIGHTS;
+const ELEM_VAL = CONFIG.ELEMENTS.VALUES;
+
+const ENERGY_MAX=CONFIG.ENERGY.MAX;
+const ELECTRIC_ENERGY_PER_TILE=CONFIG.ENERGY.ELECTRIC_TILE_GAIN;
+const VOID_ENERGY_COST=CONFIG.ENERGY.VOID_TILE_COST;
+const SLIDE_COST_GROWTH_BASE=CONFIG.SLIDE_COST.GROWTH_BASE;
+const SLIDE_COST_GROWTH_PER_LEVEL=CONFIG.SLIDE_COST.GROWTH_PER_LEVEL;
+function marginalSlideCost(dist){ return 1 + slideCostGrowth()*dist; }
+function cumulativeSlideCost(d){ const g=slideCostGrowth(); d=Math.abs(d); return d + g*d*d/2; }
+function maxPaidDistance(s){
+  const g=slideCostGrowth();
+  s=Math.max(0,s);
+  if(g<=0) return s;
+  return (-1+Math.sqrt(1+2*g*s))/g;
+}
+const SHAKE_MAX=CONFIG.SHAKE.MAX;
+const SHAKE_MAX_SPECIAL=CONFIG.SHAKE.MAX_SPECIAL;
+const MAX_HOLES=CONFIG.HAZARDS.MAX_HOLES;
+const HYPER_BOMB_CHANCE=CONFIG.HYPERDRIVE.BOMB_CHANCE;
+const MAX_BOMB_BOOMS_PER_TURN=CONFIG.HYPERDRIVE.MAX_BOOMS_PER_TURN;
+
+const LEVEL_THRESHOLDS=CONFIG.LEVELS.THRESHOLDS;
+const PRESTIGE_START_LEVEL = LEVEL_THRESHOLDS.length+2; // = 11: eerste level ná de vaste lijst
+
+/* ---------------------------------------------------------------------
+ * STATES — robuuste enum i.p.v. losse string-literals voor de state machine.
+ * ------------------------------------------------------------------- */
+const STATES = Object.freeze({
+  TITLE: 'title', IDLE: 'idle', DRAG: 'drag', SNAP: 'snap', RESOLVE: 'resolve',
+  MATCH_FLASH: 'match_flash', COIN_FLIGHT: 'coin_flight', FALL: 'fall',
+  VAULT_PAYOUT: 'vault_payout', JACKPOT: 'jackpot', MELT: 'melt', OVER: 'over',
+  LAST_CHANCE: 'last_chance',
+});
+
+/* ---------------------------------------------------------------------
+ * GAME_MODES — Zen (ontspannen) vs Core (de volledige survival-uitdaging).
+ * ------------------------------------------------------------------- */
+const GAME_MODES = { ZEN: CONFIG.MODE.ZEN.id, CORE: CONFIG.MODE.CORE.id };
+function modeConfig(){ return GS.mode===GAME_MODES.ZEN ? CONFIG.MODE.ZEN : CONFIG.MODE.CORE; }
+function hazardsEnabled(){ return modeConfig().hazardsEnabled; }
+function isZen(){ return GS.mode===GAME_MODES.ZEN; }
+function isCore(){ return GS.mode===GAME_MODES.CORE; }
+
+const JACKPOT_CASCADE=CONFIG.MATCH.JACKPOT_CASCADE;   // multiplier 4096+
+const DEADLOCK_SECONDS=CONFIG.DEADLOCK.SECONDS;
+function currentLevel(){
+  let lvl=1;
+  for(let i=0;i<LEVEL_THRESHOLDS.length;i++) if(GS.score>=LEVEL_THRESHOLDS[i]) lvl=i+2;
+  if(GS.score>=LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length-1]){
+    // Voorbij de laatste vaste drempel: blijf oneindig doorschalen (prestige-gevoel, geen cap).
+    let t=LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length-1];
+    while(GS.score>=t){ t*=2.3; lvl++; }
+  }
+  return lvl;
+}
+function slideCostGrowth(){
+  const lvl=Math.min(currentLevel(),12); // cap op 12: voorkomt dat prestige-levels de kost absurd hoog maken
+  return SLIDE_COST_GROWTH_BASE + (lvl-1)*SLIDE_COST_GROWTH_PER_LEVEL;
+}
+
+const RECIPE_UNLOCK_LEVEL={ 1:1, 2:2, 3:3, 6:4, 5:5, 8:6, 17:8, 14:9 };
+const LEVEL_UNLOCKS={
+  2:'🎨 Colour Wipe unlocked!',
+  3:'💥 Plasma Nova unlocked!\n⚠ Void elements emerge!',
+  4:'✚ Electric Strike unlocked!',
+  5:'⚠ NEW HAZARD — Acid Burn leaves acid pools!\n💎 Crystal elements emerge!',
+  6:'❄ Blizzard unlocked — turn tiles golden!',
+  7:'⚡ The tempo rises!',
+  8:'⚠ NEW HAZARD — Supernova opens black holes!',
+  9:'💥 The Big Bang unlocked — full board wipe!',
+  10:'☀ Solar core reached!'
+};
+
+const REACT_MIN_GROUP=CONFIG.MATCH.REACT_MIN_GROUP;
+const MAX_REACTIONS_PER_TURN=CONFIG.MATCH.MAX_REACTIONS_PER_TURN;
+const CORE_COMBO=CONFIG.MATCH.CORE_COMBO;
+const MAX_FUSES_PER_CHAIN=CONFIG.MATCH.MAX_FUSES_PER_CHAIN;
+const key=(c,r)=>c+','+r;
+const inGrid=(c,r)=>c>=0&&c<COLS&&r>=0&&r<ROWS;
+
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let dpr=1, viewW=0, viewH=0;
+function resize(){
+  const ww=window.innerWidth, wh=window.innerHeight;
+  let w=ww, h=w*3/4;
+  if(h>wh){ h=wh; w=h*4/3; }
+  viewW=Math.floor(w); viewH=Math.floor(h);
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.floor(viewW*dpr); cv.height=Math.floor(viewH*dpr);
+  cv.style.width=viewW+'px'; cv.style.height=viewH+'px';
+  ctx.setTransform(dpr*viewW/CW,0,0,dpr*viewH/CH,0,0);
+}
+window.addEventListener('resize',resize); resize();
+
+const mem={};
+const store={
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k]??null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+};
+
+/* ---------------------------------------------------------------------
+ * GAMESTATE — alle mutable spelstatus in één gestructureerd object i.p.v.
+ * losse globals. reset() herinitialiseert deze properties bij elke nieuwe run.
+ * ------------------------------------------------------------------- */
+const GS = {
+  // -- Core / meta --
+  state: STATES.TITLE,
+  mode: GAME_MODES.CORE,
+  board: [],
+  score: 0,
+  highscore: parseInt(store.get('rf_highscore')||'0',10)||0,
+  prestigeLevel: parseInt(store.get('rf_prestige')||'0',10)||0,
+  // -- Energie & tempo --
+  energy: ENERGY_MAX,
+  energyAccum: 0,
+  energyFlash: 0,
+  limitFlash: 0,
+  timeScale: 1.0,
+  // -- Combo / cascade --
+  comboChain: 0,
+  coreSpawned: false,
+  chainElems: new Set(),
+  fusesThisChain: 0,
+  oerknalDone: false,
+  chainRecipes: new Set(),
+  hyperThisChain: false,
+  hyperPending: false,
+  turnRemovedTotal: 0,
+  turnBestCombo: 0,
+  reactionsThisTurn: 0,
+  bigChainElems: new Set(),
+  // -- Hyperdrive & jackpot --
+  hyper: false,
+  hyperT: 0,
+  jackpotArmed: false,
+  jackpotPhase: -1,
+  jackpotTimer: 0,
+  jackpotTiles: [],
+  jackpotPayout: 0,
+  // -- Kluis (vault) & munten --
+  vaultCoins: 0,
+  vaultPulse: 0,
+  vaultFlash: 0,
+  vaultToScore: 0,
+  coins: [],
+  multToastVal: 0,
+  multToastT: 0,
+  // -- Hazards (acid / holes / miasma) --
+  acid: {},
+  acidUsed: new Set(),
+  holes: [],
+  miasmas: [],
+  bombBoomsThisTurn: 0,
+  // -- Input / drag --
+  drag: {on:false,axis:null,idx:0,off:0,sx:0,sy:0,sOff:0,moved:false,hitLimit:false},
+  snapAnim: null,
+  // -- Visuele fx --
+  fx: [],
+  parts: [],
+  shake: 0,
+  shakeSpecial: false,
+  meltT: 0,
+  matchFlashT: 0,
+  matchFlashRm: new Set(),
+  // -- Voortgang / deadlock --
+  turnNr: 0,
+  deadlockActive: false,
+  deadlockT: 0,
+  lastReshuffleLevel: 0, // level waarop de (enige) reshuffle van dat level al gebruikt is
+  lastAnnouncedLevel: 1,
+  moveEarned: 0,
+  stepDelay: 0,
+  lastChanceActive: false,
+  rescueMove: null,
+  rescueMoveText: '',
+  // -- Popups & tutorial --
+  popupActive: false,
+  popupTitle: '',
+  popupText: '',
+  popupCol: '#fff',
+  tut: {active:false, step:0, axis:null, idx:0, needMatch:false, waited:0},
+  tutDone: true,
+  // -- Persistente unlocks --
+  unlocked: new Set(JSON.parse(store.get('rf_recipes')||'[]')),
+  hintsSeen: new Set(JSON.parse(store.get('rf_hints')||'[]')),
+};
+
+function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+function glowStroke(g,path,col,core){
+  const layers=[[14,.10],[9,.16],[5,.30],[2.6,.95]];
+  for(const [w,a] of layers){
+    g.lineWidth=w; g.strokeStyle=col; g.globalAlpha=a;
+    g.lineJoin='round'; g.lineCap='round'; g.stroke(path);
+  }
+  g.globalAlpha=1;
+  if(core){ g.lineWidth=1.2; g.strokeStyle='#ffffff'; g.globalAlpha=.85; g.stroke(path); g.globalAlpha=1; }
+}
+function shapePath(t,cx,cy,s){
+  const p=new Path2D();
+  if(t===F){ 
+    p.moveTo(cx,cy-s); p.quadraticCurveTo(cx+s*.55,cy-s*.2,cx+s*.8,cy+s*.35);
+    p.quadraticCurveTo(cx+s*.3,cy+s*.15,cx,cy+s);
+    p.quadraticCurveTo(cx-s*.3,cy+s*.15,cx-s*.8,cy+s*.35);
+    p.quadraticCurveTo(cx-s*.55,cy-s*.2,cx,cy-s); p.closePath();
+  } else if(t===I){ 
+    for(let i=0;i<6;i++){ const a=Math.PI/6+i*Math.PI/3;
+      const x=cx+Math.cos(a)*s, y=cy+Math.sin(a)*s;
+      i?p.lineTo(x,y):p.moveTo(x,y); } p.closePath();
+  } else if(t===G){ 
+    p.moveTo(cx,cy-s);
+    p.bezierCurveTo(cx+s*.95,cy-s*.05,cx+s*.75,cy+s*.85,cx,cy+s*.9);
+    p.bezierCurveTo(cx-s*.75,cy+s*.85,cx-s*.95,cy-s*.05,cx,cy-s); p.closePath();
+  } else if(t===E) { 
+    p.moveTo(cx+s*.2, cy-s); p.lineTo(cx-s*.5, cy+s*.1); p.lineTo(cx+s*.1, cy+s*.1);
+    p.lineTo(cx-s*.2, cy+s); p.lineTo(cx+s*.5, cy-s*.1); p.lineTo(cx-s*.1, cy-s*.1); p.closePath();
+  } else if(t===V) { 
+    p.arc(cx, cy, s*0.9, Math.PI*1.5, Math.PI*0.5, false);
+    p.arc(cx+s*0.3, cy, s*0.6, Math.PI*0.5, Math.PI*1.5, true); p.closePath();
+  } else if(t===C) { 
+    p.moveTo(cx, cy-s*1.1); p.lineTo(cx+s*0.7, cy); p.lineTo(cx, cy+s*1.1); p.lineTo(cx-s*0.7, cy); p.closePath();
+  }
+  return p;
+}
+
+const SPR={base:[],mega:[]};
+let SPR_core=null;
+
+function buildSprites(){
+  for(let t=0;t<6;t++){
+    let c=mkCanvas(T,T), g=c.getContext('2d');
+    const rr=new Path2D(); const m=7;
+    rr.roundRect ? rr.roundRect(m,m,T-2*m,T-2*m,14) : rr.rect(m,m,T-2*m,T-2*m);
+    g.fillStyle=EDARK[t]; g.fill(rr);
+    g.lineWidth=2; g.strokeStyle=ECOL[t]; g.globalAlpha=.35; g.stroke(rr); g.globalAlpha=1;
+    
+    const p = shapePath(t,T/2,T/2,T*.28);
+    g.fillStyle = ECOL[t]; g.globalAlpha = 0.25; g.fill(p); g.globalAlpha = 1;
+    glowStroke(g,p,ECOL[t],true);
+    SPR.base[t]=c;
+    
+    c=mkCanvas(T,T); g=c.getContext('2d');
+    g.fillStyle=EDARK[t]; g.fill(rr);
+    const ring=new Path2D(); ring.arc(T/2,T/2,T*.40,0,Math.PI*2);
+    glowStroke(g,ring,ECOL[t],false);
+    const pmega = shapePath(t,T/2,T/2,T*.24);
+    g.fillStyle = ECOL[t]; g.globalAlpha = 0.25; g.fill(pmega); g.globalAlpha = 1;
+    glowStroke(g,pmega,'#ffffff',false);
+    glowStroke(g,pmega,ECOL[t],true);
+    SPR.mega[t]=c;
+  }
+  SPR_core=mkCanvas(T,T);
+  let g=SPR_core.getContext('2d');
+  const star=new Path2D();
+  for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5;
+    const rr2=(i%2?T*.14:T*.34);
+    const x=T/2+Math.cos(a)*rr2, y=T/2+Math.sin(a)*rr2;
+    i?star.lineTo(x,y):star.moveTo(x,y); } star.closePath();
+  g.fillStyle = '#ffffff'; g.globalAlpha = 0.3; g.fill(star); g.globalAlpha = 1;
+  for(let t=0;t<4;t++){ g.save(); g.translate(T/2,T/2); g.rotate(t*.12); g.translate(-T/2,-T/2);
+    g.lineWidth=6-t; g.strokeStyle=ECOL[t]; g.globalAlpha=.22; g.stroke(star); g.restore(); }
+  g.globalAlpha=1; glowStroke(g,star,'#ffffff',true);
+}
+buildSprites();
+
+const HYPER_VIGNETTE=mkCanvas(CW,CH);
+(function(){ const g=HYPER_VIGNETTE.getContext('2d');
+  const vg=g.createRadialGradient(CW/2,CH/2,CH*0.30, CW/2,CH/2,CH*0.78);
+  vg.addColorStop(0,'rgba(255,45,120,0)');
+  vg.addColorStop(0.55,'rgba(255,45,120,0)');
+  vg.addColorStop(1,'rgba(255,45,120,0.48)');
+  g.fillStyle=vg; g.fillRect(0,0,CW,CH);
+})();
+
+let AC=null, master=null, musicGain=null, noiseBuf=null, musicTimer=null, nextNote=0, stepIdx=0;
+const BASS=[33,0,33,45, 36,0,33,0, 40,0,33,45, 31,0,48,45]; 
+const LEAD=[60,0,64,0, 67,0,64,0, 65,0,62,0, 67,0,71,0];
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+
+function initAudio(){
+  if(AC) return;
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=AC.createGain(); master.gain.value=.85; master.connect(AC.destination);
+    musicGain=AC.createGain(); musicGain.gain.value=0.0; musicGain.connect(master);
+    noiseBuf=AC.createBuffer(1,AC.sampleRate*1,AC.sampleRate);
+    const d=noiseBuf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    nextNote=AC.currentTime+.1;
+    musicTimer=setInterval(schedule,30);
+  }catch(e){ AC=null; }
+}
+
+function schedule(){
+  if(!AC) return;
+  const lvl=(typeof currentLevel==='function')?currentLevel():1;
+  const eRatio = GS.energy / ENERGY_MAX;
+  const isTense = eRatio < 0.25;
+  
+  let baseBpm = 80 + Math.min(lvl,10)*2; 
+  if(isTense) baseBpm += 60; 
+  const bpm = GS.hyper ? 180 : baseBpm;
+  const spb = 60/bpm/2; 
+  
+  const targetVolume = GS.hyper ? 0.22 : (isTense ? 0.35 : 0.0);
+  if(musicGain){
+    musicGain.gain.setTargetAtTime(targetVolume, AC.currentTime, 0.15);
+  }
+
+  while(nextNote<AC.currentTime+.14){
+    playMusicStep(stepIdx,nextNote,spb,lvl, isTense);
+    nextNote+=spb; stepIdx=(stepIdx+1)%16;
+  }
+}
+
+function playMusicStep(i,t,spb,lvl, isTense){
+  lvl=lvl||1;
+  const TRANSPOSE=[0,0,4,4,7,7,11,11,4,7]; 
+  const transp=TRANSPOSE[Math.min(lvl,10)-1]||0;
+  const n=BASS[i];
+  if(n){ 
+    const o=AC.createOscillator(), fl=AC.createBiquadFilter(), gn=AC.createGain();
+    o.type=isTense ? 'square' : 'sawtooth';
+    o.frequency.value=mtof(n+transp + (isTense ? 12 : 0)); 
+    fl.type='lowpass'; fl.Q.value=8;
+    fl.frequency.setValueAtTime(GS.hyper?2400:(1200+lvl*90),t);
+    fl.frequency.exponentialRampToValueAtTime(120,t+spb*.9);
+    gn.gain.setValueAtTime(.22,t); gn.gain.exponentialRampToValueAtTime(.001,t+spb*.95);
+    o.connect(fl); fl.connect(gn); gn.connect(musicGain);
+    o.start(t); o.stop(t+spb);
+  }
+  const src=AC.createBufferSource(); src.buffer=noiseBuf;
+  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+  const hg=AC.createGain();
+  hg.gain.setValueAtTime(i%4===2?.10:.045,t);
+  hg.gain.exponentialRampToValueAtTime(.001,t+.05);
+  src.connect(hp); hp.connect(hg); hg.connect(musicGain);
+  src.start(t); src.stop(t+.06);
+  if(lvl>=5 && i%2===1){
+    const s2=AC.createBufferSource(); s2.buffer=noiseBuf;
+    const h2=AC.createBiquadFilter(); h2.type='highpass'; h2.frequency.value=9000;
+    const g2=AC.createGain(); g2.gain.setValueAtTime(.03,t); g2.gain.exponentialRampToValueAtTime(.001,t+.03);
+    s2.connect(h2); h2.connect(g2); g2.connect(musicGain); s2.start(t); s2.stop(t+.04);
+  }
+  if((lvl>=3||GS.hyper||isTense) && LEAD[i]){
+    const lo=AC.createOscillator(), lg=AC.createGain();
+    lo.type = lvl>=8||GS.hyper||isTense ? 'sawtooth' : 'square';
+    lo.frequency.value=mtof(LEAD[i]+transp+(lvl>=6?12:0));
+    // FIXED: Ternary operator safely written om SyntaxErrors te voorkomen in alle browsers
+    const vol = GS.hyper ? 0.06 : Math.min(.02+ (lvl-3)*0.006, .05);
+    lg.gain.setValueAtTime(vol + (isTense?0.03:0),t); lg.gain.exponentialRampToValueAtTime(.001,t+spb*.8);
+    lo.connect(lg); lg.connect(musicGain); lo.start(t); lo.stop(t+spb);
+  }
+  if(i===0){ 
+    const o2=AC.createOscillator(),g2=AC.createGain();
+    o2.type='triangle'; o2.frequency.value=mtof(57+transp);
+    g2.gain.setValueAtTime(.05,t); g2.gain.exponentialRampToValueAtTime(.001,t+spb*4);
+    o2.connect(g2); g2.connect(musicGain); o2.start(t); o2.stop(t+spb*4);
+  }
+}
+function tone(f0,f1,dur,type,vol){
+  if(!AC) return;
+  const t=AC.currentTime;
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t);
+  if(f1) o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.02);
+}
+function boom(size){
+  if(!AC) return;
+  const t=AC.currentTime;
+  const src=AC.createBufferSource(); src.buffer=noiseBuf;
+  const fl=AC.createBiquadFilter(); fl.type='lowpass';
+  fl.frequency.setValueAtTime(2200*size,t);
+  fl.frequency.exponentialRampToValueAtTime(60,t+.35*size);
+  const g=AC.createGain(); g.gain.setValueAtTime(.5*Math.min(size,1.3),t);
+  g.gain.exponentialRampToValueAtTime(.001,t+.4*size);
+  src.connect(fl); fl.connect(g); g.connect(master);
+  src.start(t); src.stop(t+.5*size);
+  tone(120*size,30,0.35*size,'sine',.4); 
+}
+const sfx={
+  slide(){ tone(220,90,.12,'sine',.15); },
+  snap(){ tone(500,700,.05,'square',.08); },
+  limit(){ tone(160,55,.14,'square',.2); },
+  match(combo){
+    if(!AC) return;
+    const base=520+combo*70;
+    [0,4,7,12].forEach((s,i)=>{ setTimeout(()=>tone(base*Math.pow(2,s/12),0,.09,'square',.10),i*45); });
+  },
+  freeze(){ tone(1800,300,.4,'triangle',.2); },
+  charge(){ tone(300,1200,.25,'sawtooth',.12); },
+  ready(){ tone(880,1760,.3,'square',.15); },
+  unlock(){ [660,880,1320].forEach((f,i)=>setTimeout(()=>tone(f,0,.18,'triangle',.16),i*90)); },
+  laser(){ tone(2200,200,.22,'sawtooth',.18); },
+  coin(){ tone(1400,2100,.06,'triangle',.09); },
+  mult(step){ const base=440*Math.pow(2,Math.min(step,8)/3.2); tone(base,base*1.35,.14,'square',.14); },
+  jackpot(){ [0,4,7,12,16].forEach((s,i)=>setTimeout(()=>tone(660*Math.pow(2,s/12),0,.22,'square',.16),i*70)); boom(1.8); },
+  melt(){ boom(2.2); setTimeout(()=>boom(1.6),250); setTimeout(()=>boom(2.5),600); }
+};
+
+
+function cascadeMultiplier(chain){ return Math.pow(2, Math.max(0,chain-1)); }
+
+
+
+
+const RECIPES=[
+ {id:1, n:'Steam',          d:'Fire + Ice — clears a 3×3 area & RESTORES ENERGY ⚡'},
+ {id:2, n:'Colour Wipe',    d:'Electric + Poison — destroys every tile of one colour.'},
+ {id:3, n:'Plasma Nova',    d:'Fire + Electric — massive fiery explosion (radius 3).'},
+ {id:6, n:'Electric Strike',d:'Ice + Electric — shoots 8 lightning bolts.'},
+ {id:5, n:'Acid Burn',      d:'Fire + Poison — acid pool dissolves tiles.'},
+ {id:8, n:'Blizzard',       d:'One huge Ice match (6+) — turns 8 random tiles golden (5× coins).'},
+ {id:17,n:'Supernova',      d:'Mega/Core combo — black hole sucks tiles to the vault.'},
+ {id:14,n:'The Big Bang',   d:'4+ different big matches in one chain — wipes the board (also grants Hyperdrive if your combo is ×512–×2048).'}
+];
+const DUO={'0,1':1,'2,3':2,'0,3':3,'1,3':6,'0,2':5};
+const PURE=[null,8,null,null,null,null];
+const TRIPLE={};
+function hintOnce(id,msg){
+  if(GS.hintsSeen.has(id)) return;
+  GS.hintsSeen.add(id);
+  store.set('rf_hints',JSON.stringify([...GS.hintsSeen]));
+  hintToast(msg);
+}
+let hintToastT=null;
+function hintToast(msg){ 
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.opacity=1;
+  clearTimeout(toastT); clearTimeout(hintToastT);
+  hintToastT=setTimeout(()=>el.style.opacity=0,3400);
+}
+function unlock(id){
+  if(GS.unlocked.has(id)) return;
+  GS.unlocked.add(id);
+  store.set('rf_recipes',JSON.stringify([...GS.unlocked]));
+  const rc=RECIPES.find(r=>r.id===id);
+  toast('⚗ New reaction: '+rc.n);
+  sfx.unlock();
+}
+let toastT=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.opacity=1;
+  clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0,2200);
+}
+
+function getActiveElementCount(){
+    const lvl = currentLevel();
+    if(lvl <= 2) return 4;
+    if(lvl <= 4) return 5;
+    return 6;
+}
+
+const RNG_DROP_CHANCE=CONFIG.DROPS.LUCKY_CHANCE;
+function newTile(){
+  const eCount = getActiveElementCount();
+  let total = 0;
+  for(let i=0; i<eCount; i++) total += BASE_WEIGHTS[i];
+  let r = Math.random() * total;
+  let t = 0;
+  for(let i=0; i<eCount; i++) {
+      if(r < BASE_WEIGHTS[i]) { t = i; break; }
+      r -= BASE_WEIGHTS[i];
+  }
+
+  const tile={t,mega:false,core:false,gold:false,bomb:GS.hyper&&Math.random()<HYPER_BOMB_CHANCE,fall:0};
+  if(!tile.bomb&&!GS.tut.active&&Math.random()<RNG_DROP_CHANCE){
+    if(Math.random()<0.5) tile.mega=true; else tile.gold=true;
+    tile.luckyDrop=true; 
+  }
+  return tile;
+}
+function initBoard(){
+  GS.board=[];
+  for(let r=0;r<ROWS;r++){
+    GS.board[r]=[];
+    for(let c=0;c<COLS;c++){
+      let nt;
+      do{ nt=newTile(); }
+      while((c>=2&&GS.board[r][c-1].t===nt.t&&GS.board[r][c-2].t===nt.t)||
+            (r>=2&&GS.board[r-1][c]&&GS.board[r-1][c].t===nt.t&&GS.board[r-2][c]&&GS.board[r-2][c].t===nt.t));
+      GS.board[r][c]=nt;
+    }
+  }
+}
+function reset(){
+  GS.score=0; GS.comboChain=0; GS.hyper=false; GS.shake=0; GS.meltT=0; GS.timeScale=1.0;
+  GS.vaultCoins=0; GS.vaultPulse=0; GS.vaultFlash=0; GS.vaultToScore=0;
+  GS.jackpotArmed=false; GS.jackpotPhase=-1; GS.jackpotTimer=0; GS.jackpotTiles=[];
+  GS.multToastVal=0; GS.multToastT=0; GS.coins=[]; GS.moveEarned=0;
+  GS.acid={}; GS.miasmas=[]; GS.holes=[]; GS.fx=[]; GS.parts=[]; GS.turnNr=0;
+  GS.energy=ENERGY_MAX; GS.energyAccum=0; GS.energyFlash=0; GS.limitFlash=0; GS.bombBoomsThisTurn=0;
+  GS.bigChainElems.clear(); GS.reactionsThisTurn=0; GS.turnRemovedTotal=0; GS.turnBestCombo=0;
+  GS.lastAnnouncedLevel=1; GS.deadlockActive=false; GS.deadlockT=0; GS.popupActive=false;
+  GS.lastChanceActive=false; GS.rescueMove=null; GS.rescueMoveText='';
+  GS.snapAnim=null; GS.drag.on=false; GS.tut.active=false;
+  GS.lastReshuffleLevel=0;
+  initBoard(); GS.state=STATES.IDLE;
+}
+initBoard();
+
+const TUT_STEPS=[
+  { text:'Welcome to the reactor. Swipe the highlighted row LEFT so the three fire tiles line up.', guide:true },
+  { text:'Nice — three or more of the same shape clear away.', guide:false },
+  { text:'The ⚡ energy bar below only pays for your NET move — dragging around to think is free.', guide:false },
+  { text:'Tap ⚗ COMBINATIONS to see reactions you can discover. Chain cascades for big payouts!', guide:false }
+];
+function tutStartBoard(){
+  const R=3, MC=4;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    GS.board[r][c]={t:(r+c)%4,mega:false,core:false,gold:false,bomb:false,fall:0};
+  }
+  GS.board[R-1][MC].t=F; GS.board[R+1][MC].t=F;
+  for(let c=0;c<COLS;c++) GS.board[R][c].t=(c%2? I : G);
+  GS.board[R][MC+1].t=F;
+  if(GS.board[R][MC].t===F) GS.board[R][MC].t=I;
+  if(inGrid(R-2,MC)&&GS.board[R-2][MC].t===F) GS.board[R-2][MC].t=I;
+  if(inGrid(R+2,MC)&&GS.board[R+2][MC].t===F) GS.board[R+2][MC].t=G;
+  GS.tut={active:true, step:0, axis:'row', idx:R, needMatch:true, waited:0};
+}
+function tutBegin(){
+  if(GS.tutDone) return false;
+  tutStartBoard();
+  GS.state=STATES.IDLE; return true;
+}
+function tutAdvance(){
+  GS.tut.step++; GS.tut.waited=0;
+  if(GS.tut.step>=TUT_STEPS.length){ tutFinish(); return; }
+  GS.tut.needMatch = TUT_STEPS[GS.tut.step].guide;
+}
+function tutFinish(){ GS.tut.active=false; GS.tutDone=true; store.set('rf_tut','1'); }
+function tutOnMatch(){ if(GS.tut.active&&GS.tut.step===0){ tutAdvance(); } }
+
+function rotateRow(r,shift){
+  shift=((shift%COLS)+COLS)%COLS; if(!shift) return;
+  const old=GS.board[r].slice();
+  for(let c=0;c<COLS;c++) GS.board[r][(c+shift)%COLS]=old[c];
+}
+function rotateCol(c,shift){
+  shift=((shift%ROWS)+ROWS)%ROWS; if(!shift) return;
+  const old=[]; for(let r=0;r<ROWS;r++) old[r]=GS.board[r][c];
+  for(let r=0;r<ROWS;r++) GS.board[(r+shift)%ROWS][c]=old[r];
+}
+
+// -- Rescue-move detectie (t.b.v. de last-chance move bij 0 energie) --
+function cloneBoardShallow(){
+  const b=new Array(ROWS);
+  for(let r=0;r<ROWS;r++){ b[r]=new Array(COLS);
+    for(let c=0;c<COLS;c++){ const cell=GS.board[r][c]; b[r][c]=cell?{t:cell.t}:null; } }
+  return b;
+}
+function boardHasMatchAfterShift(axis,idx,shift){
+  const original=GS.board;
+  GS.board=cloneBoardShallow();
+  if(axis==='row') rotateRow(idx,shift); else rotateCol(idx,shift);
+  const hasMatch=findGroups().groups.length>0;
+  GS.board=original;
+  return hasMatch;
+}
+// Zoekt de kleinst mogelijke rij/kolom-schuif (t/m maxMagnitude) die een match zou opleveren.
+function findRescueMove(maxMagnitude){
+  for(let mag=1; mag<=maxMagnitude; mag++){
+    for(let r=0;r<ROWS;r++) for(const shift of [mag,-mag])
+      if(boardHasMatchAfterShift('row',r,shift)) return {axis:'row', idx:r, shift};
+    for(let c=0;c<COLS;c++) for(const shift of [mag,-mag])
+      if(boardHasMatchAfterShift('col',c,shift)) return {axis:'col', idx:c, shift};
+  }
+  return null;
+}
+function describeRescueMove(mv){
+  if(!mv) return '';
+  const dirWord = mv.shift<0 ? (mv.axis==='row'?'left':'up') : (mv.axis==='row'?'right':'down');
+  const label = mv.axis==='row' ? ('row '+(mv.idx+1)) : ('column '+(mv.idx+1));
+  return 'You could still have swiped '+label+' '+dirWord+'.';
+}
+
+function findGroups(){
+  const mark=Array.from({length:ROWS},()=>new Array(COLS).fill(false));
+  const mega5=[];
+  for(let r=0;r<ROWS;r++){ let c=0;
+    while(c<COLS){ const cell=GS.board[r][c];
+      if(!cell){c++;continue;}
+      let e=c+1; while(e<COLS&&GS.board[r][e]&&GS.board[r][e].t===cell.t)e++;
+      if(e-c>=3){ for(let i=c;i<e;i++)mark[r][i]=true;
+        if(e-c>=5) mega5.push({c:c+((e-c)>>1),r,t:cell.t}); }
+      c=e; } }
+  for(let c=0;c<COLS;c++){ let r=0;
+    while(r<ROWS){ const cell=GS.board[r][c];
+      if(!cell){r++;continue;}
+      let e=r+1; while(e<ROWS&&GS.board[e][c]&&GS.board[e][c].t===cell.t)e++;
+      if(e-r>=3){ for(let i=r;i<e;i++)mark[i][c]=true;
+        if(e-r>=5) mega5.push({c,r:r+((e-r)>>1),t:cell.t}); }
+      r=e; } }
+  const gid=Array.from({length:ROWS},()=>new Array(COLS).fill(-1));
+  const groups=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(!mark[r][c]||gid[r][c]>=0) continue;
+    const t=GS.board[r][c].t, cells=[], q=[[c,r]]; gid[r][c]=groups.length;
+    while(q.length){ const [x,y]=q.pop(); cells.push([x,y]);
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx, ny=y+dy;
+        if(inGrid(nx,ny)&&mark[ny][nx]&&gid[ny][nx]<0&&GS.board[ny][nx].t===t){
+          gid[ny][nx]=groups.length; q.push([nx,ny]); } } }
+    groups.push({t,cells});
+  }
+  const seenM=new Set();
+  const mega5u=mega5.filter(m=>{ const k=m.c+','+m.r; if(seenM.has(k)) return false; seenM.add(k); return true; });
+  if(GS.drag.sr!=null&&GS.drag.sc!=null){
+    const fc=GS.drag.sc, fr=GS.drag.sr;
+    groups.sort((a,b)=>{
+      const aHas=a.cells.some(([c,r])=>Math.abs(c-fc)<=1&&Math.abs(r-fr)<=1)?0:1;
+      const bHas=b.cells.some(([c,r])=>Math.abs(c-fc)<=1&&Math.abs(r-fr)<=1)?0:1;
+      return aHas-bHas;
+    });
+  }
+  return {groups,gid,mega5:mega5u};
+}
+function fuse2x2(){
+  let fused=false;
+  if(GS.fusesThisChain>=MAX_FUSES_PER_CHAIN) return false; 
+  for(let r=0;r<ROWS-1;r++)for(let c=0;c<COLS-1;c++){
+    const a=GS.board[r][c],b=GS.board[r][c+1],d=GS.board[r+1][c],e2=GS.board[r+1][c+1];
+    if(a&&b&&d&&e2&&!a.mega&&!b.mega&&!d.mega&&!e2.mega&&!a.core&&!b.core&&!d.core&&!e2.core&&
+       a.t===b.t&&a.t===d.t&&a.t===e2.t&&!a.gold&&!b.gold&&!d.gold&&!e2.gold){
+      a.mega=true; GS.fusesThisChain++;
+      GS.board[r][c+1]=null; GS.board[r+1][c]=null; GS.board[r+1][c+1]=null;
+      fxRing(cX(c)+T,cY(r)+T,ECOL[a.t],T*1.1);
+      burst(cX(c)+T,cY(r)+T,ECOL[a.t],26);
+      tone(200,900,.25,'triangle',.18);
+      hintOnce('mega','⬟ A Mega tile formed! Match it in a line of 3+ to trigger its special effect.');
+      fused=true;
+    }
+  }
+  return fused;
+}
+function collectArea(rm,c0,r0,rad){ 
+  for(let r=r0-rad;r<=r0+rad;r++)for(let c=c0-rad;c<=c0+rad;c++)
+    if(inGrid(c,r)&&GS.board[r][c]) rm.add(key(c,r));
+}
+function collectRadius(rm,c0,r0,rad){ 
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(GS.board[r][c]&&Math.hypot(c-c0,r-r0)<=rad) rm.add(key(c,r));
+}
+
+function fxLightningBolt(x1, y1, x2, y2) {
+    GS.fx.push({k:'lightning_bolt', x1,y1,x2,y2, col:'#ffd21f', t:0, d:0.35});
+    burst(x2, y2, '#ffd21f', 6);
+}
+
+function triggerRecipe(id,pt,rm,extra){
+  if(id==null||!RECIPES.some(r=>r.id===id)) return false;
+  if(GS.chainRecipes.has(id)) return false; 
+  if(currentLevel()<(RECIPE_UNLOCK_LEVEL[id]||99)) return false; 
+  if(!hazardsEnabled()&&(id===5||id===17)) return false; // Zen: geen Acid Burn / Supernova black holes
+  GS.chainRecipes.add(id);
+  unlock(id);
+  const px=cX(pt.c)+T/2, py=cY(pt.r)+T/2;
+  switch(id){
+    case 1: 
+      collectArea(rm,pt.c,pt.r,1); fxCloud(px,py,'#ffffff'); 
+      GS.energy = Math.min(ENERGY_MAX, GS.energy + 8);
+      addText(px, py-20, '⚡ +ENERGY!', '#7df9ff');
+      break;
+    case 2:{ 
+      let col=extra;
+      if(col==null){
+        const cnt=[0,0,0,0,0,0];
+        for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+          if(GS.board[r][c]) cnt[GS.board[r][c].t]++;
+        col=cnt.indexOf(Math.max(...cnt));
+      }
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+        if(GS.board[r][c]&&GS.board[r][c].t===col) rm.add(key(c,r));
+      fxRing(px,py,ECOL[col],GW*.5); } break;
+    case 3: 
+      collectRadius(rm,pt.c,pt.r,3); 
+      for(let i=0; i<3; i++) burst(px, py, ['#ff2200','#ff7a1f','#ffcc00'][i], 30);
+      fxRing(px,py,'#ff2d78',T*3.2); boom(1.8); GS.shake=20; GS.timeScale=0.08; 
+      GS.shakeSpecial = true;
+      break;
+    case 5: 
+      for(let r=pt.r;r<=pt.r+1;r++)for(let c=pt.c;c<=pt.c+1;c++)
+        if(inGrid(c,r)&&(Object.keys(GS.acid).length<8||GS.acid[key(c,r)])) GS.acid[key(c,r)]=3;
+      fxCloud(px,py,'#5dff3a'); break;
+    case 6: 
+      {
+         const cands=[];
+         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
+         for(let i=0; i<8 && cands.length; i++) {
+             const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
+             fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
+             rm.add(key(tc, tr));
+         }
+         sfx.laser(); 
+         GS.shake=10; GS.timeScale=0.3;
+      }
+      break;
+    case 8: { 
+      const cand8=[];
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+        if(GS.board[r][c]&&!GS.board[r][c].mega&&!GS.board[r][c].core&&!GS.board[r][c].gold&&!rm.has(key(c,r))) cand8.push([c,r]);
+      for(let i=0;i<8&&cand8.length;i++){ const [gc,gr]=cand8.splice(rnd(cand8.length),1)[0];
+        GS.board[gr][gc].gold=true; burst(cX(gc)+T/2,cY(gr)+T/2,'#ffd21f',8); }
+      sfx.freeze(); toast('❄ Blizzard — 8 tiles turned golden!'); } break;
+    case 14: for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+        if(GS.board[r][c]) rm.add(key(c,r));
+      GS.hyperPending=true; boom(2); GS.shake=20; GS.shakeSpecial=true; GS.timeScale=0.05; toast('💥 THE BIG BANG'); break;
+    case 17: if(GS.holes.length<MAX_HOLES) GS.holes.push({c:pt.c,r:pt.r,turns:3}); break;
+  }
+  const recipe=RECIPES.find(r=>r.id===id);
+  addText(px,py,'⚗ '+recipe.n,'#ffd21f');
+  return true;
+}
+
+function applyTurnStatuses(){
+  GS.turnNr++;
+  for(const k in GS.acid){ if(--GS.acid[k]<=0) delete GS.acid[k]; }
+  for(const m of GS.miasmas){
+    const cand=[];
+    for(let r=m.r;r<m.r+4;r++)for(let c=m.c;c<m.c+4;c++)
+      if(inGrid(c,r)&&GS.board[r][c]&&!GS.board[r][c].mega) cand.push([c,r]);
+    if(cand.length){ const [c,r]=cand[rnd(cand.length)];
+      destroyOne(c,r,'#2e801d', true); }
+    m.turns--;
+  }
+  GS.miasmas=GS.miasmas.filter(m=>m.turns>0);
+  
+  for(const h of GS.holes){
+    let n=0;
+    const hx = cX(h.c)+T/2, hy = cY(h.r)+T/2;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
+      if(n>=3) break; 
+      const c=h.c+dx,r=h.r+dy;
+      if(inGrid(c,r)&&GS.board[r][c]){ 
+          const eatenCell = GS.board[r][c];
+          const eatenVal = ELEM_VAL[eatenCell.t] * (eatenCell.gold ? 5 : 1);
+          destroyOne(c,r,'#c26bff', false); 
+          GS.fx.push({k:'suck', x1:cX(c)+T/2, y1:cY(r)+T/2, x2:hx, y2:hy, t:0, d:0.3});
+          flyCoins(hx, hy, eatenVal, '#ffd21f');
+          GS.energy=clamp(GS.energy+1,0,ENERGY_MAX);
+          n++; 
+      }
+    }
+    boom(1.1);
+    h.turns--;
+  }
+  GS.holes=GS.holes.filter(h=>h.turns>0);
+
+  // Crystal-tegels gloeien en smelten langzaam naar beneden: elke beurt "druppelt" een Crystal
+  // één rij verder omlaag en verandert de tegel die het daar raakt in Void. Void levert veel
+  // punten op maar kost energie bij het matchen — dus hoe langer een Crystal blijft staan,
+  // hoe gevaarlijker het bord wordt. Uitgeschakeld in Zen-modus (net als andere hazards).
+  if(hazardsEnabled()){
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cell=GS.board[r][c];
+      if(!cell||cell.t!==C||cell.mega||cell.core||cell.meltDone) continue;
+      if(cell.meltDepth==null) cell.meltDepth=r+1;
+      if(cell.meltDepth>=ROWS){ cell.meltDone=true; continue; }
+      const targetR=cell.meltDepth;
+      const target=GS.board[targetR][c];
+      if(target&&target.t!==V&&!target.mega&&!target.core&&!target.gold){
+        const tx=cX(c)+T/2, ty=cY(targetR)+T/2;
+        target.t=V;
+        burst(tx,ty,'#ff22a1',10);
+        fxRing(tx,ty,'#9d00ff',T*0.7);
+        addText(tx,ty-18,'VOID!','#9d00ff');
+        hintOnce('crystalMelt','💎 A Crystal is melting downward — whatever it touches turns into Void. Clear it fast!');
+      }
+      cell.meltDepth++;
+    }
+  }
+}
+function destroyOne(c,r,col, fly){
+  const cell=GS.board[r][c]; if(!cell) return;
+  const bx=cX(c)+T/2, by=cY(r)+T/2;
+  burst(bx,by,col||ECOL[cell.t],10);
+  if(fly) { GS.moveEarned+=1; flyCoins(bx,by,ELEM_VAL[cell.t],'#ffe98a'); GS.energy=clamp(GS.energy+1,0,ENERGY_MAX); }
+  GS.board[r][c]=null;
+}
+
+function gravity(){
+  const newlySpawned=[];
+  for(let c=0;c<COLS;c++){
+    let w=ROWS-1;
+    for(let r=ROWS-1;r>=0;r--){
+      const cell=GS.board[r][c];
+      if(cell){
+        if(w!==r){ GS.board[w][c]=cell; GS.board[r][c]=null; cell.fall+=(w-r)*T; }
+        w--;
+      }
+    }
+    for(let r=w;r>=0;r--){
+      if(!GS.board[r][c]){
+        const nt=newTile(); nt.fall=(r+1)*T;
+        GS.board[r][c]=nt;
+        newlySpawned.push(nt);
+      }
+    }
+  }
+  applyPityTimer(newlySpawned);
+}
+// Pity timer (Core-modus): voorkomt een oneerlijke RNG-doodsspiraal. Als de speler kritiek
+// laag op energie zit en er vallen nieuwe tegels, garandeer minimaal 1-2 Electric-tegels
+// zodat er altijd een eerlijke kans is om energie terug te winnen.
+function applyPityTimer(newlySpawned){
+  if(isZen()||!newlySpawned.length) return;
+  const critical = (GS.energy/ENERGY_MAX) < CONFIG.PITY.ENERGY_FRACTION_THRESHOLD;
+  if(!critical) return;
+  const alreadyElectric = newlySpawned.some(t=>t.t===E);
+  if(alreadyElectric) return;
+  const need = Math.min(CONFIG.PITY.GUARANTEED_ELECTRIC_TILES, newlySpawned.length);
+  for(let i=0;i<need;i++){
+    const t=newlySpawned[newlySpawned.length-1-i];
+    t.t=E; t.mega=false; t.core=false; t.bomb=false; t.gold=false;
+  }
+}
+function anyFalling(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(GS.board[r][c]&&GS.board[r][c].fall>0) return true;
+  return false;
+}
+
+function doStep(){
+  const fused=fuse2x2();
+  const {groups,gid,mega5}=findGroups();
+  if(groups.length){
+    GS.comboChain++;
+    if(GS.comboChain>1){
+      GS.multToastVal=cascadeMultiplier(GS.comboChain);
+      GS.multToastT=0;
+      GS.vaultPulse=Math.min(1.5, GS.vaultPulse+0.3);
+      sfx.mult(GS.comboChain-1);
+      
+      let comboText = ''; let comboColor = '#ffffff';
+      if(GS.comboChain===2) { comboText='GREAT!'; comboColor='#5dff3a'; }
+      if(GS.comboChain===4) { comboText='SUPER!'; comboColor='#2fb8ff'; }
+      if(GS.comboChain===6) { comboText='MEGA!'; comboColor='#ffd21f'; }
+      if(GS.comboChain===7) { comboText='GODLIKE!'; comboColor='#ff2d78'; GS.timeScale=0.5; }
+      if(comboText) {
+         addText(GX+GW/2, GY+GH/2 - (GS.comboChain*10), comboText, comboColor);
+         boom(1.0);
+      }
+    }
+    if(GS.tut.active&&GS.tut.step===0) tutOnMatch(); 
+
+    const rm=new Set();
+    const matched=new Set();
+    for(const g of groups){ GS.chainElems.add(g.t);
+      if(g.cells.length>=REACT_MIN_GROUP) GS.bigChainElems.add(g.t); 
+      for(const [c,r] of g.cells){ rm.add(key(c,r)); matched.add(key(c,r)); } }
+
+    GS.matchFlashRm = new Set([...rm]);
+    GS.matchFlashT = 0.45; 
+    GS.state=STATES.MATCH_FLASH;
+    
+    mem.currentGroups = groups;
+    mem.currentGid = gid;
+    mem.currentMega5 = mega5;
+    mem.currentMatched = matched;
+  }
+  else if(fused||boardHasNulls()){
+    gravity(); GS.state=STATES.FALL;
+  }
+  else {
+    if(GS.vaultCoins > 0) {
+      GS.state=STATES.VAULT_PAYOUT;
+    } else {
+      endResolve();
+    }
+  }
+}
+
+function processRemovals() {
+    const groups = mem.currentGroups;
+    const gid = mem.currentGid;
+    const mega5 = mem.currentMega5;
+    const matched = mem.currentMatched;
+    const rm = GS.matchFlashRm;
+    
+    for(const m of mega5){
+      const k=key(m.c,m.r);
+      if(rm.has(k)&&GS.board[m.r][m.c]){
+        rm.delete(k); const cell=GS.board[m.r][m.c]; cell.mega=true; cell.core=false;
+        fxRing(cX(m.c)+T/2,cY(m.r)+T/2,ECOL[cell.t],T);
+      }
+    }
+
+    const reactOK = GS.comboChain<=25;
+    if(reactOK){
+      const sizeOf=i=>groups[i].cells.length;
+
+      for(const g of groups){
+        const coreCell=g.cells.find(([c,r])=>GS.board[r][c]&&GS.board[r][c].core);
+        if(coreCell){ const [c,r]=coreCell; triggerRecipe(3,{c,r},rm); } 
+      }
+      
+      if(GS.bigChainElems.size>=4&&!GS.oerknalDone){
+        GS.oerknalDone=true; const [c,r]=groups[0].cells[0]; triggerRecipe(14,{c,r},rm);
+        GS.bigChainElems.clear(); GS.chainElems.clear();
+      }
+      
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        const cell=GS.board[r][c];
+        if(!cell||!cell.mega||rm.has(key(c,r))) continue;
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const nc=c+dx,nr=r+dy;
+          if(!inGrid(nc,nr)) continue;
+          const gi=gid[nr][nc];
+          if(gi<0) continue;
+          triggerRecipe(17,{c,r},rm); break;
+        }
+      }
+      
+      // PURE-reacties: één enkele zeer grote match van hetzelfde element (bv. 6+ Ice → Blizzard).
+      // Dit is fundamenteel anders dan de DUO-reacties hierboven: findGroups() voegt aangrenzende
+      // tegels van hetzelfde element altijd al samen tot ÉÉN groep, dus "twee Ice-groepen die
+      // elkaar raken" kan structureel nooit bestaan. Vandaar een aparte, simpele check op groepsgrootte
+      // i.p.v. de aangrenzendheids-scan hierboven. Begrensde loop (max ROWS*COLS groepen).
+      if(GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN){
+        for(const g of groups){
+          if(GS.reactionsThisTurn>=MAX_REACTIONS_PER_TURN) break;
+          if(g.cells.length<REACT_MIN_GROUP) continue;
+          const pid=PURE[g.t];
+          if(!pid) continue;
+          const [c,r]=g.cells[0];
+          if(triggerRecipe(pid,{c,r},rm,null)) GS.reactionsThisTurn++;
+        }
+      }
+
+      if(GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN){
+        const seenDuo=new Set();
+        for(let r=0;r<ROWS&&GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN;r++)
+         for(let c=0;c<COLS&&GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN;c++){
+          const a=gid[r][c]; if(a<0) continue;
+          for(const [dx,dy] of [[1,0],[0,1]]){
+            const nc=c+dx,nr=r+dy;
+            if(!inGrid(nc,nr)) continue;
+            const b=gid[nr][nc];
+            if(b<0||b===a) continue;
+            const ta=groups[a].t, tb=groups[b].t;
+            if(ta===tb) continue;
+            if(sizeOf(a)<REACT_MIN_GROUP&&sizeOf(b)<REACT_MIN_GROUP) continue;
+            const dk=Math.min(ta,tb)+','+Math.max(ta,tb);
+            if(seenDuo.has(dk)) continue;
+            seenDuo.add(dk);
+            const id=DUO[dk];
+            if(id&&triggerRecipe(id,{c,r},rm, null)) GS.reactionsThisTurn++;
+          }
+        }
+      }
+    } 
+    
+    if(GS.comboChain===1) sfx.match(1);
+    if(reactOK){
+      const matchedMegas=[], matchedCores=[];
+      for(const g of groups){
+        for(const [c,r] of g.cells){
+          const cell=GS.board[r][c]; if(!cell) continue;
+          if(cell.core) matchedCores.push({c,r,t:g.t});
+          else if(cell.mega) matchedMegas.push({c,r,t:cell.t});
+        }
+      }
+      for(const m of matchedMegas){
+        const px=cX(m.c)+T/2, py=cY(m.r)+T/2;
+        switch(m.t){
+          case F: 
+            for(let r=0;r<ROWS;r++) if(GS.board[r][m.c]) rm.add(key(m.c,r));
+            for(let i=0; i<15; i++) burst(px, GY+i*T, '#ff3358', 5);
+            fxLaser(px,GY,px,GY+GH,'#ff3358'); sfx.laser(); addText(px,py-30,'⬟ MEGA FIRE','#ff3358'); break;
+          case I: 
+            for(let c2=0;c2<COLS;c2++) if(GS.board[m.r][c2]) rm.add(key(c2,m.r));
+            fxLaser(GX,py,GX+GW,py,'#2fb8ff'); sfx.laser(); addText(px,py-30,'⬟ MEGA ICE','#2fb8ff'); break;
+          case G: 
+            { const cand=[];
+              for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+                if(GS.board[r][c]&&!GS.board[r][c].mega&&!GS.board[r][c].core&&!rm.has(key(c,r))) cand.push([c,r]);
+              for(let i=0;i<5&&cand.length;i++){ const [c,r]=cand.splice(rnd(cand.length),1)[0];
+                GS.board[r][c].t=G; burst(cX(c)+T/2,cY(r)+T/2,'#5dff3a',6); }
+            }
+            addText(px,py-30,'⬟ MEGA POISON','#5dff3a'); break;
+          case E: 
+             {
+               const cands=[];
+               for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
+               for(let i=0; i<8 && cands.length; i++) {
+                   const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
+                   fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
+                   rm.add(key(tc, tr));
+               }
+             }
+            sfx.laser(); addText(px,py-30,'⬟ MEGA ELECTRIC','#ffd21f'); break;
+          case V:
+            collectRadius(rm,m.c,m.r,2); boom(1.2); fxRing(px,py,'#9d00ff',T*2.5);
+            addText(px,py-30,'⬟ MEGA VOID','#9d00ff'); break;
+          case C:
+            for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&GS.board[r][c].t===C) rm.add(key(c,r));
+            fxRing(px,py,'#ff22a1',T*3); sfx.laser(); addText(px,py-30,'⬟ MEGA CRYSTAL','#ff22a1'); break;
+        }
+      }
+      if(matchedMegas.length>=2){
+        addText(GX+GW/2,GY-8,'💥 MEGA COMBO ×'+matchedMegas.length,'#c26bff');
+        boom(1.3); GS.shake=12; GS.timeScale=0.15;
+        for(let i=1;i<matchedMegas.length;i++){
+          collectArea(rm,matchedMegas[i].c,matchedMegas[i].r,1);
+          fxRing(cX(matchedMegas[i].c)+T/2,cY(matchedMegas[i].r)+T/2,'#c26bff',T*1.5);
+        }
+      }
+      if(matchedCores.length>0&&matchedMegas.length>0){
+        addText(GX+GW/2,GY+GH/2,'★ CORE FUSION!','#ffffff');
+        boom(1.5); GS.shake=14; GS.shakeSpecial=true; GS.timeScale=0.08;
+      }
+    }
+    
+    if(GS.comboChain>=CORE_COMBO&&!GS.coreSpawned){
+      GS.coreSpawned=true;
+      let sx=0,sy=0,sn=0;
+      for(const k of matched){ const [c,r]=k.split(',').map(Number); sx+=c; sy+=r; sn++; }
+      const gc=sn?sx/sn:COLS/2, gr=sn?sy/sn:ROWS/2;
+      let best2=null,bestD=1e9;
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        const cell=GS.board[r][c];
+        if(cell&&!cell.mega&&!cell.core&&!rm.has(key(c,r))){
+          const d=Math.hypot(c-gc,r-gr);
+          if(d<bestD){ bestD=d; best2=[c,r]; } } }
+      if(best2){ const [c,r]=best2; GS.board[r][c].core=true; fxRing(cX(c)+T/2,cY(r)+T/2,'#ffffff',T); }
+    }
+    if(GS.comboChain>=10&&!GS.hyper&&!GS.hyperThisChain&&!GS.hyperPending) GS.hyperPending=true; // wordt pas echt gestart in endResolve, na vault-payout en popups
+
+    let removedN=0, goldN=0, electricN=0, voidN=0;
+    let coinSrcX=0, coinSrcY=0, coinSrcN=0; 
+    let earned = 0;
+    const mult=cascadeMultiplier(GS.comboChain);
+
+    for(const k of rm){
+      const [c,r]=k.split(',').map(Number);
+      const cell=GS.board[r][c]; if(!cell) continue;
+      if(cell.gold) goldN++;
+      if(cell.t===E) electricN++;
+      if(cell.t===V) voidN++;
+      const bx=cX(c)+T/2, by=cY(r)+T/2;
+      coinSrcX+=bx; coinSrcY+=by; coinSrcN++;
+      
+      earned += (ELEM_VAL[cell.t] * (cell.gold? 5 : 1)) * mult;
+
+      if(cell.mega){
+        burst(bx,by,ECOL[cell.t],28); fxRing(bx,by,ECOL[cell.t],T*0.8);
+      } else if(cell.core){
+        burst(bx,by,'#ffffff',30); fxRing(bx,by,'#ffffff',T*1.2);
+      } else {
+        burst(bx,by,ECOL[cell.t],10);
+        if(cell.t===E) { fxLightningBolt(bx,by, bx+(Math.random()-.5)*T*2, by+(Math.random()-.5)*T*2); } 
+        if(cell.t===I) fxFrost(bx,by);     
+      }
+      GS.board[r][c]=null; removedN++;
+    }
+    
+    if(coinSrcN&&earned>0){
+      flyCoins(coinSrcX/coinSrcN, coinSrcY/coinSrcN, earned, goldN?'#ffd21f':'#ffe98a');
+    }
+    if(electricN>0){
+      // Bewust NIET vermenigvuldigd met de combo-multiplier: anders ontploft de energie-economie
+      // tijdens grote cascades. Dit is de primaire energiebron.
+      const eGained=electricN*ELECTRIC_ENERGY_PER_TILE;
+      GS.energy=clamp(GS.energy+eGained,0,ENERGY_MAX);
+      if(coinSrcN) addText(coinSrcX/coinSrcN, coinSrcY/coinSrcN-34, '+'+(Math.round(eGained*10)/10)+' ⚡', '#7df9ff');
+    }
+    if(voidN>0){
+      // Void: hoge punten, maar trekt energie — risk/reward. Ook niet vermenigvuldigd met de
+      // combo-multiplier, om dezelfde reden als bij Electric hierboven.
+      const eLost=voidN*VOID_ENERGY_COST;
+      GS.energy=clamp(GS.energy-eLost,0,ENERGY_MAX);
+      if(coinSrcN) addText(coinSrcX/coinSrcN, coinSrcY/coinSrcN-34, '-'+(Math.round(eLost*10)/10)+' ⚡', '#9d00ff');
+    }
+    if(goldN) addText(GX+GW/2,GY+GH/3,'GOLD ×5!','#ffd21f');
+    GS.turnRemovedTotal+=removedN;
+    GS.turnBestCombo=Math.max(GS.turnBestCombo,GS.comboChain);
+
+    if(GS.comboChain>=JACKPOT_CASCADE&&!GS.jackpotArmed){
+      GS.jackpotArmed=true;
+      triggerJackpot();
+      return; 
+    }
+    gravity(); 
+    GS.state=STATES.COIN_FLIGHT; 
+}
+
+function triggerJackpot(){
+  const JACK_MULT=512; 
+  GS.jackpotTiles=[];
+  let tiles=0;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cell=GS.board[r][c];
+    if(cell){
+      tiles++;
+      GS.jackpotTiles.push({
+        x:cX(c)+T/2, y:cY(r)+T/2,
+        col:cell.gold?'#ffd21f':ECOL[cell.t],
+        t:cell.t, delay:Math.random()*1.2,
+      });
+    }
+  }
+  GS.jackpotPayout=tiles*JACK_MULT;
+  GS.jackpotPhase=0; GS.jackpotTimer=0;
+  sfx.jackpot(); GS.timeScale = 0.05; 
+  GS.state=STATES.JACKPOT;
+  GS.multToastVal=512; GS.multToastT=0;
+}
+function updateJackpot(dt){
+  GS.jackpotTimer+=dt;
+  if(GS.jackpotPhase===0){
+    GS.shake=Math.min(GS.jackpotTimer*15,20); GS.shakeSpecial=true;
+    if(GS.jackpotTimer>=1.2){ GS.jackpotPhase=1; GS.jackpotTimer=0;
+      boom(2.0);
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) GS.board[r][c]=null;
+      for(const jt of GS.jackpotTiles){
+        flyCoins(jt.x, jt.y, 512, jt.col);
+        burst(jt.x,jt.y,jt.col,6);
+      }
+    }
+  } else if(GS.jackpotPhase===1){
+    GS.vaultPulse=Math.min(1.5,GS.vaultPulse+dt*2);
+    GS.vaultFlash=Math.min(1,GS.vaultFlash+dt*3);
+    if(GS.jackpotTimer>=2.8||GS.coins.length===0){
+      GS.jackpotPhase=2; GS.jackpotTimer=0;
+      fxRing(VAULT_X,VAULT_Y,'#ffd21f',200);
+      boom(1.8);
+    }
+  } else if(GS.jackpotPhase===2){
+    GS.vaultPulse=1.4*(1-GS.jackpotTimer/0.8);
+    GS.vaultFlash=1-GS.jackpotTimer/0.8;
+    if(GS.jackpotTimer>=0.8){
+      GS.jackpotPhase=3; GS.jackpotTimer=0;
+      initBoard();
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        if(GS.board[r][c]) GS.board[r][c].fall=(ROWS-r)*T+400;
+      }
+    }
+  } else if(GS.jackpotPhase===3){
+    let falling=false;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cell=GS.board[r][c];
+      if(cell&&cell.fall>0){
+        cell.fall-=dt*(1500+cell.fall*2);
+        if(cell.fall<=0) cell.fall=0;
+        falling=true;
+      }
+    }
+    if(!falling){
+      GS.jackpotPhase=-1;
+      GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear();
+      GS.chainRecipes.clear(); GS.fusesThisChain=0; GS.oerknalDone=false;
+      GS.bigChainElems.clear(); GS.reactionsThisTurn=0; GS.hyperPending=false;
+      GS.state=STATES.VAULT_PAYOUT; 
+    }
+  }
+}
+function boardHasNulls(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    if(!GS.board[r][c]) return true;
+  return false;
+}
+function afterLanding(){
+  let boomed=false;
+  {
+    const rm=new Set();
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cell=GS.board[r][c];
+      if(cell&&cell.bomb){
+        cell.bomb=false; 
+        if(GS.hyper&&GS.comboChain<=25&&GS.bombBoomsThisTurn<MAX_BOMB_BOOMS_PER_TURN){
+          GS.bombBoomsThisTurn++; collectArea(rm,c,r,1); fxRing(cX(c)+T/2,cY(r)+T/2,'#ff7a1f',T*1.4);
+        }
+      }
+    }
+    if(rm.size){
+      boomed=true; boom(.9); GS.shake=8;
+      for(const k of rm){ const [c,r]=k.split(',').map(Number);
+        if(GS.board[r][c]){ const bx=cX(c)+T/2, by=cY(r)+T/2;
+          burst(bx,by,'#ff7a1f',8); flyCoins(bx,by,ELEM_VAL[GS.board[r][c].t],'#ffe98a'); GS.board[r][c]=null; } }
+    }
+  }
+  let acided=false;
+  for(const k in GS.acid){
+    if(GS.acidUsed.has(k)) continue;
+    const [c,r]=k.split(',').map(Number);
+    if(inGrid(c,r)&&GS.board[r][c]&&!GS.board[r][c].mega){
+      destroyOne(c,r,'#5dff3a', true); acided=true; GS.acidUsed.add(k);
+    }
+  }
+  if(boomed||acided){ GS.state=STATES.COIN_FLIGHT; return; }
+  doStep(); 
+}
+
+function checkLevelUp(){
+  const lvl=currentLevel();
+  if(lvl<=GS.lastAnnouncedLevel) return;
+  for(let l=GS.lastAnnouncedLevel+1;l<=lvl;l++){
+    if(LEVEL_UNLOCKS[l]){
+      showPopup('🎉 LEVEL '+l, LEVEL_UNLOCKS[l], '#7df9ff');
+      sfx.unlock();
+    }
+    if(l>=PRESTIGE_START_LEVEL){
+      GS.prestigeLevel++;
+      store.set('rf_prestige',String(GS.prestigeLevel));
+      const pct=Math.round((1-Math.pow(0.9,GS.prestigeLevel))*100);
+      showPopup('⭐ PRESTIGE '+GS.prestigeLevel, 'Energy now regenerates '+pct+'% faster — permanently, in every future run!', '#ffd21f');
+      sfx.unlock();
+    }
+  }
+  GS.lastAnnouncedLevel=lvl;
+}
+function endResolve(){
+  if(GS.lastChanceActive){
+    const succeeded = GS.turnBestCombo>0;
+    GS.lastChanceActive=false;
+    GS.rescueMove=null;
+    if(!succeeded){
+      GS.turnRemovedTotal=0; GS.turnBestCombo=0;
+      GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear(); GS.hyperPending=false;
+      startMeltdown();
+      return;
+    }
+    // Gelukte laatste-kans-zet: ga gewoon verder als een normale beurt (energie kan alweer
+    // iets zijn aangevuld via de emergency-grant hieronder of via Electric-tegels in de match).
+  }
+  if(GS.turnBestCombo>0&&GS.energy<ENERGY_MAX){
+    const eGain = (GS.turnBestCombo >= 3 ? Math.min(GS.turnBestCombo - 2, 3) : 0) + (GS.turnRemovedTotal>=15 ? 2 : 0);
+    if(eGain > 0){
+      GS.energy=clamp(GS.energy+eGain,0,ENERGY_MAX);
+      addText(GX+GW/2,GY+GH-20,'+'+Math.round(eGain)+' ⚡','#7df9ff');
+    }
+  }
+  const pendingHyper = GS.hyperPending;
+  GS.turnRemovedTotal=0; GS.turnBestCombo=0;
+  GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear();
+  GS.hyperPending=false;
+  checkLevelUp();
+  // Uitgestelde Hyperdrive: pas NA vault-payout, levelcheck en popup-tonen.
+  // De timer zelf pauzeert ook al bij popupActive (eerder gefixt), dus als checkLevelUp()
+  // een level-up popup heeft geopend, loopt de klok pas als de speler die wegtikt.
+  if(pendingHyper) startHyper();
+  GS.state=STATES.IDLE;
+}
+function startResolve(isSlide){
+  GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear(); GS.fusesThisChain=0; GS.oerknalDone=false; GS.acidUsed.clear();
+  GS.chainRecipes.clear(); GS.hyperThisChain=false; GS.hyperPending=false;
+  GS.jackpotArmed=false; GS.bombBoomsThisTurn=0; GS.moveEarned=0;
+  GS.bigChainElems.clear(); GS.reactionsThisTurn=0; GS.turnRemovedTotal=0; GS.turnBestCombo=0; 
+  if(isSlide) applyTurnStatuses();
+  GS.state=STATES.RESOLVE; GS.stepDelay=.25;
+}
+function startHyper(){
+  if(GS.comboChain<10||GS.comboChain>=JACKPOT_CASCADE) return; // alleen binnen ×512–×2048 — geldt voor ALLE trigger-paden (ook The Big Bang-recept)
+  GS.hyper=true; GS.hyperT=16; GS.hyperThisChain=true; // duur verdubbeld (was 8s)
+  toast('🚀 HYPERDRIVE!'); boom(1.5); GS.shake=14; GS.shakeSpecial=true; GS.timeScale = 0.25;
+}
+
+function startMeltdown(){
+  GS.state=STATES.MELT; GS.meltT=0; sfx.melt(); GS.shake=18; GS.shakeSpecial=true;
+}
+// Zodra de speler vastzit (geen betaalbare zet meer): direct beslissen wat er gebeurt, i.p.v.
+// pas na afloop van een aftelling. Is er een geldige zet van 1 tegel mogelijk, dan krijgt de
+// speler een laatste-kans-venster van 5 seconden om die (of een andere) geldige zet gratis te
+// proberen — mist hij, dan is het game over met een onthulling van de zet die er wél was.
+// Is er géén enkele geldige zet meer, dan volgt een reshuffle (max. 1 per spelniveau); is die
+// al gebruikt op dit niveau, dan is het direct game over (zonder onthulling, want die was er niet).
+function handleDeadlock(){
+  const mv=findRescueMove(CONFIG.DEADLOCK.LAST_CHANCE_MAX_SHIFT);
+  if(mv){
+    GS.rescueMove=mv;
+    GS.rescueMoveText=describeRescueMove(mv);
+    GS.lastChanceActive=true;
+    GS.deadlockActive=true; GS.deadlockT=DEADLOCK_SECONDS;
+    GS.state=STATES.LAST_CHANCE;
+    toast("⚠ LAST CHANCE — one free 1-tile move. Miss it and it's game over.");
+    return;
+  }
+  const lvl=currentLevel();
+  if(GS.lastReshuffleLevel!==lvl){
+    GS.lastReshuffleLevel=lvl;
+    reshuffleBoard();
+  } else {
+    GS.rescueMoveText="No valid move was left, and this level's reshuffle was already used.";
+    startMeltdown();
+  }
+}
+function reshuffleBoard(){
+  initBoard();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(GS.board[r][c]) GS.board[r][c].fall=(ROWS-r)*T+250;
+  }
+  GS.energy=ENERGY_MAX; GS.energyAccum=0; GS.energyFlash=.3;
+  boom(1.0); GS.shake=10;
+  toast("🔄 NO MOVES LEFT — Board reshuffled, energy restored! (this level's only reshuffle)");
+  GS.state=STATES.FALL;
+}
+function showGameOver(){
+  GS.state=STATES.OVER; GS.popupActive=false; 
+  const finalScoreRounded=Math.floor(GS.score);
+  document.getElementById('finalScore').textContent=finalScoreRounded.toLocaleString('en-US');
+  const bestEl=document.getElementById('bestLine');
+  if(finalScoreRounded>GS.highscore){
+    GS.highscore=finalScoreRounded;
+    store.set('rf_highscore',String(GS.highscore));
+    if(bestEl) bestEl.textContent='🏆 NEW BEST!';
+  } else if(bestEl){
+    bestEl.textContent='BEST: '+GS.highscore.toLocaleString('en-US');
+  }
+  const rescueEl=document.getElementById('rescueLine');
+  if(rescueEl) rescueEl.textContent = GS.rescueMoveText || '';
+  document.getElementById('over').classList.remove('hidden');
+}
+function updateTitleBest(){
+  const el=document.getElementById('titleBest');
+  if(el) el.textContent = GS.highscore>0 ? ('BEST: '+GS.highscore.toLocaleString('en-US')+' COINS') : '';
+}
+
+function cX(c){ return GX+c*T; }
+function cY(r){ return GY+r*T; }
+function burst(x,y,col,n){
+  if(GS.parts.length>420) return;
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, v=60+Math.random()*380;
+    GS.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-60,col,life:.5+Math.random()*.4,t:0,s:3+Math.random()*5});
+  }
+}
+function emitEnergyLeak(x,y){
+  if(GS.parts.length>360) return;               
+  for(let i=0;i<2;i++){
+    const a=Math.random()*Math.PI*2, v=30+Math.random()*90;
+    const col = Math.random()<.5 ? '#00cfff' : '#ff7a1f';
+    GS.parts.push({x:x+(Math.random()-.5)*T*.4, y:y+(Math.random()-.5)*T*.4,
+      vx:Math.cos(a)*v, vy:Math.sin(a)*v-20, col,
+      life:.25+Math.random()*.25, t:0, s:1.5+Math.random()*2.5});
+  }
+}
+function fxLaser(x1,y1,x2,y2,col){ GS.fx.push({k:'laser',x1,y1,x2,y2,col,t:0,d:.3}); }
+function fxRing(x,y,col,r){ GS.fx.push({k:'ring',x,y,col,r,t:0,d:.45}); }
+function fxCloud(x,y,col){ GS.fx.push({k:'cloud',x,y,col,t:0,d:.8}); burst(x,y,col,20); }
+function addText(x,y,txt,col){ GS.fx.push({k:'text',x,y,txt,col,t:0,d:1.5}); }
+function fxFrost(x,y){
+  for(let i=0;i<6;i++){
+    const a=Math.random()*Math.PI*2, v=40+Math.random()*80;
+    GS.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-30,col:Math.random()<.5?'#bfeaff':'#7df9ff',
+      life:.6+Math.random()*.4,t:0,s:3+Math.random()*5});
+  }
+}
+
+const VAULT_X=CONFIG.VAULT.X, VAULT_Y=CH-CONFIG.VAULT.Y_OFFSET_FROM_BOTTOM;   
+// Als er extreem veel munten kort na elkaar de kluis in vliegen (hoge vaultPulse), "spat" de
+// kluis over: een paar muntjes ketsen zichtbaar terug omhoog en vallen weer neer, alsof hij
+// even overstroomt. Puur cosmetisch, hergebruikt het bestaande deeltjessysteem (incl. gravity).
+function vaultOverflowTick(dt){
+  const th=CONFIG.VAULT.OVERFLOW_PULSE_THRESHOLD;
+  if(GS.vaultPulse<th||GS.parts.length>380) return;
+  const intensity=clamp((GS.vaultPulse-th)/(2.0-th),0,1);
+  if(Math.random()<CONFIG.VAULT.OVERFLOW_SPAWN_CHANCE*intensity*dt*10){
+    const n=1+Math.floor(intensity*3);
+    for(let i=0;i<n;i++){
+      // Brede boog: munten ketsen af en belanden zichtbaar links/rechts NAAST de kluis, niet
+      // alleen recht omhoog — alsof de kluis letterlijk overstroomt.
+      const a=Math.PI*(1.05+Math.random()*0.9);
+      const v=130+Math.random()*220;
+      GS.parts.push({x:VAULT_X+(Math.random()-.5)*50, y:VAULT_Y-20,
+        vx:Math.cos(a)*v, vy:Math.sin(a)*v-90,
+        col:Math.random()<0.5?'#ffd21f':'#ffe98a', life:.6+Math.random()*.5, t:0, s:3+Math.random()*4});
+    }
+  }
+}
+function flyCoins(x,y,total,col){
+  if(GS.coins.length>240) GS.coins.splice(0, GS.coins.length-240); 
+  const n=clamp(Math.round(3+Math.log2(total+1)*2),3,20);
+  const per=total/n;
+  for(let i=0;i<n;i++){
+    const cx=(x+VAULT_X)/2+(Math.random()-.5)*180;
+    const cy=y-80-Math.random()*120;
+    GS.coins.push({
+      x0:x+(Math.random()-.5)*T*.6, y0:y+(Math.random()-.5)*T*.6,
+      cx, cy, x1:VAULT_X+(Math.random()-.5)*30, y1:VAULT_Y+(Math.random()-.5)*20,
+      t:-i*0.03, dur:.55+Math.random()*.25, val:per, col:col||'#ffd21f', history:[]
+    });
+  }
+}
+
+function showPopup(title,text,col){ GS.popupActive=true; GS.popupTitle=title; GS.popupText=text; GS.popupCol=col||'#fff'; }
+function dismissPopup(){ GS.popupActive=false; }
+
+function evtPos(e){
+  const rect=cv.getBoundingClientRect();
+  const p=(e.clientX!=null)?e:((e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e);
+  return { x:(p.clientX-rect.left)*CW/rect.width, y:(p.clientY-rect.top)*CH/rect.height };
+}
+function onDown(e){
+  e.preventDefault();
+  if(GS.state===STATES.TITLE||GS.state===STATES.OVER) return;
+  const p=evtPos(e);
+  if(GS.tut.active){
+    if(!TUT_STEPS[GS.tut.step].guide){ tutAdvance(); return; }
+    if(!(p.x>GX&&p.x<GX+GW&&p.y>GY&&p.y<GY+GH)) return;
+    const sc=Math.floor((p.x-GX)/T), sr=Math.floor((p.y-GY)/T);
+    if((GS.tut.axis==='row'&&sr!==GS.tut.idx)||(GS.tut.axis==='col'&&sc!==GS.tut.idx)) return;
+    GS.drag={on:true,axis:null,idx:0,off:0,sx:p.x,sy:p.y,moved:false,hitLimit:false, sc, sr};
+    GS.state=STATES.DRAG; return;
+  }
+  if(GS.popupActive){ dismissPopup(); return; }
+  if(GS.state!==STATES.IDLE&&GS.state!==STATES.LAST_CHANCE) return;
+  if(p.x>GX&&p.x<GX+GW&&p.y>GY&&p.y<GY+GH){
+    GS.drag={on:true,axis:null,idx:0,off:0,sx:p.x,sy:p.y,moved:false,hitLimit:false,
+          sc:Math.floor((p.x-GX)/T), sr:Math.floor((p.y-GY)/T)};
+    GS.state=STATES.DRAG;
+  }
+}
+function onMove(e){
+  e.preventDefault();
+  const p=evtPos(e);
+  if(GS.state!==STATES.DRAG||!GS.drag.on) return;
+  const dx=p.x-GS.drag.sx, dy=p.y-GS.drag.sy;
+  if(!GS.drag.axis){
+    if(Math.abs(dx)<14&&Math.abs(dy)<14) return;
+    if(GS.tut.active){ GS.drag.axis=GS.tut.axis; GS.drag.idx=GS.tut.idx; } 
+    else if(Math.abs(dx)>=Math.abs(dy)){ GS.drag.axis='row'; GS.drag.idx=GS.drag.sr; }
+    else { GS.drag.axis='col'; GS.drag.idx=GS.drag.sc; }
+    if(GS.energy<=0&&!GS.tut.active&&!isZen()&&!GS.lastChanceActive){ sfx.limit(); GS.drag.hitLimit=true; GS.limitFlash=.3; }
+    else { sfx.slide(); }
+  }
+  const rawPos=(GS.drag.axis==='row'? dx : dy)/T;
+  let visOff=rawPos;
+  if(GS.lastChanceActive){
+    // Laatste kans: hooguit 1 tegel verschuiven, geen energiekosten.
+    const maxMag=CONFIG.DEADLOCK.LAST_CHANCE_MAX_SHIFT;
+    if(Math.abs(visOff)>maxMag){
+      visOff=Math.sign(visOff)*maxMag;
+      if(!GS.drag.hitLimit){ GS.drag.hitLimit=true; sfx.limit(); GS.limitFlash=.3; }
+    }
+  } else if(!GS.tut.active&&!isZen()){
+    const affordable=maxPaidDistance(GS.energy);
+    if(Math.abs(visOff)>affordable){
+      visOff=Math.sign(visOff)*affordable;
+      if(!GS.drag.hitLimit){ GS.drag.hitLimit=true; sfx.limit(); GS.limitFlash=.3; }
+      GS.energyFlash=.2;
+    }
+  }
+  GS.drag.off=visOff*T;
+  GS.drag.ghostShift=Math.round(visOff);
+  GS.drag.ghostCost=(GS.tut.active||isZen()||GS.lastChanceActive)?0:cumulativeSlideCost(Math.abs(GS.drag.ghostShift));
+  GS.drag.moved=true;
+}
+function onUp(e){
+  e.preventDefault();
+  if(GS.state!==STATES.DRAG) return;
+  const fallbackState = GS.lastChanceActive ? STATES.LAST_CHANCE : STATES.IDLE;
+  if(e.type==='pointercancel'||e.type==='touchcancel'){
+    if(GS.drag.axis){ GS.snapAnim={axis:GS.drag.axis,idx:GS.drag.idx,off:GS.drag.off,slide:false}; GS.state=STATES.SNAP; }
+    else GS.state=fallbackState; GS.drag.on=false; return;
+  }
+  if(!GS.drag.axis||!GS.drag.moved){ GS.state=fallbackState; GS.drag.on=false; return; }
+  let shift=Math.round(GS.drag.off/T);
+  if(GS.lastChanceActive){
+    const maxMag=CONFIG.DEADLOCK.LAST_CHANCE_MAX_SHIFT;
+    shift=clamp(shift,-maxMag,maxMag);
+    if(shift===0){ GS.state=fallbackState; GS.drag.on=false; return; } // geen echte poging, kans blijft staan
+  } else if(!GS.tut.active&&!isZen()&&shift!==0){
+    const cost=Math.round(cumulativeSlideCost(Math.abs(shift)));
+    GS.energy=clamp(Math.round(GS.energy-cost),0,ENERGY_MAX);
+    if(GS.energy<=0){ GS.energyFlash=.2; }
+  }
+  if(GS.drag.axis==='row') rotateRow(GS.drag.idx,shift);
+  else rotateCol(GS.drag.idx,shift);
+  const residual=GS.drag.off-shift*T;
+  GS.snapAnim={axis:GS.drag.axis,idx:GS.drag.idx,off:residual,slide:shift!==0};
+  GS.drag.on=false; GS.state=STATES.SNAP; sfx.snap();
+}
+
+if(window.PointerEvent){
+  cv.addEventListener('pointerdown',(e)=>{ cv.setPointerCapture&&cv.setPointerCapture(e.pointerId); onDown(e); },{passive:false});
+  cv.addEventListener('pointermove',onMove,{passive:false});
+  cv.addEventListener('pointerup',onUp,{passive:false});
+  cv.addEventListener('pointercancel',onUp,{passive:false});
+} else {
+  cv.addEventListener('touchstart',onDown,{passive:false});
+  cv.addEventListener('touchmove',onMove,{passive:false});
+  cv.addEventListener('touchend',onUp,{passive:false});
+  cv.addEventListener('touchcancel',onUp,{passive:false});
+  cv.addEventListener('mousedown',onDown);
+  cv.addEventListener('mousemove',onMove);
+  cv.addEventListener('mouseup',onUp);
+}
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('contextmenu',e=>e.preventDefault());
+
+let last=performance.now();
+function update(realDt){
+  if(GS.timeScale < 1.0) { GS.timeScale = Math.min(1.0, GS.timeScale + realDt * 0.4); }
+  const dt = realDt * GS.timeScale;
+
+  const cap = GS.shakeSpecial ? SHAKE_MAX_SPECIAL : SHAKE_MAX;
+  if(GS.shake>cap) GS.shake=cap;
+  if(GS.shake<=0.05) GS.shakeSpecial=false; 
+  if(GS.shake>0){ GS.shake*=Math.exp(-dt*7); if(GS.shake<0.05) GS.shake=0; }
+  if(GS.hyper&&!GS.popupActive){ GS.hyperT-=dt; if(GS.hyperT<=0) GS.hyper=false; }
+
+  // Passieve energie-regeneratie is verwijderd: energie komt nu uitsluitend terug via
+  // Electric-matches, de kleine eind-van-beurt bonus (endResolve) en reshuffles.
+  if(GS.energyFlash>0) GS.energyFlash=Math.max(0,GS.energyFlash-dt);
+  if(GS.limitFlash>0) GS.limitFlash=Math.max(0,GS.limitFlash-dt);
+
+  if(isZen()){
+    // Zen-modus: energie loopt nooit leeg en er is geen deadlock/meltdown-dreiging.
+    GS.energy=ENERGY_MAX; GS.deadlockActive=false;
+  } else if(GS.state===STATES.IDLE&&!GS.tut.active){
+    const minCost = Math.round(cumulativeSlideCost(1));
+    const canSlide = GS.energy >= minCost && maxPaidDistance(GS.energy) >= 0.5;
+    if(!canSlide) handleDeadlock(); // beslist meteen: last-chance-venster, reshuffle, of game over
+  } else if(GS.state===STATES.LAST_CHANCE){
+    // Laatste-kans-venster (5s): speler mag nog exact 1 gratis zet van 1 tegel proberen.
+    // Verstrijkt de tijd zonder geslaagde poging, dan is het game over.
+    GS.deadlockT-=dt;
+    if(GS.deadlockT<=0){ GS.deadlockActive=false; startMeltdown(); }
+  } else if(GS.deadlockActive) GS.deadlockActive=false;
+
+  for(let i=GS.parts.length-1;i>=0;i--){
+    const p=GS.parts[i]; p.t+=dt;
+    if(p.t>=p.life){ GS.parts.splice(i,1); continue; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=420*dt;
+  }
+  for(let i=GS.fx.length-1;i>=0;i--){ 
+      GS.fx[i].t+=dt; 
+      if(GS.fx[i].k==='suck') {
+          let pct = GS.fx[i].t / GS.fx[i].d;
+          GS.fx[i].cx = GS.fx[i].x1 + (GS.fx[i].x2 - GS.fx[i].x1) * pct;
+          GS.fx[i].cy = GS.fx[i].y1 + (GS.fx[i].y2 - GS.fx[i].y1) * pct;
+      }
+      if(GS.fx[i].t>=GS.fx[i].d) GS.fx.splice(i,1); 
+  }
+
+  for(let i=GS.coins.length-1;i>=0;i--){
+    const cn=GS.coins[i];
+    cn.t+=dt;
+    if(cn.t<0) continue;                 
+    if(cn.t>=cn.dur){
+      GS.vaultCoins+=cn.val;
+      GS.vaultPulse=Math.min(2.0,GS.vaultPulse+0.1); GS.vaultFlash=Math.min(1,GS.vaultFlash+0.2);
+      sfx.coin();
+      GS.coins.splice(i,1);
+    }
+  }
+
+  if(GS.vaultPulse>0) GS.vaultPulse=Math.max(0,GS.vaultPulse-dt*3.2);
+  vaultOverflowTick(dt);
+  if(GS.vaultFlash>0) GS.vaultFlash=Math.max(0,GS.vaultFlash-dt*3.5);
+  if(GS.multToastVal>0){ GS.multToastT+=dt; if(GS.multToastT>1.1){ GS.multToastVal=0; GS.multToastT=0; } }
+
+  if(GS.state===STATES.SNAP){
+    if(!GS.snapAnim){ startResolve(false); } 
+    else {
+      const dir=Math.sign(GS.snapAnim.off)||1;
+      GS.snapAnim.off-=dir*T*14*dt;
+      if(GS.snapAnim.off*dir<=0){
+        const wasSlide=GS.snapAnim.slide;
+        GS.snapAnim=null; startResolve(wasSlide); 
+      }
+    }
+  }
+  else if(GS.state===STATES.RESOLVE){
+    GS.stepDelay-=dt;
+    if(GS.stepDelay<=0){ GS.stepDelay=.25; doStep(); } 
+  }
+  else if(GS.state===STATES.MATCH_FLASH){
+      GS.matchFlashT-=dt;
+      if(GS.matchFlashT<=0) {
+          processRemovals();
+      }
+  }
+  else if(GS.state===STATES.COIN_FLIGHT){
+    if(GS.coins.length === 0) {
+      GS.state=STATES.FALL;
+    }
+  }
+  else if(GS.state===STATES.FALL){
+    let landing=false;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cell=GS.board[r][c];
+      if(cell&&cell.fall>0){
+        cell.fall-=dt*(1500+cell.fall*2);
+        if(cell.fall<=0){ cell.fall=0; landing=true;
+          if(cell.luckyDrop){ cell.luckyDrop=false;
+            const bx=cX(c)+T/2, by=cY(r)+T/2;
+            burst(bx,by,cell.gold?'#ffd21f':'#ffffff',14);
+            fxRing(bx,by,cell.gold?'#ffd21f':ECOL[cell.t],T*0.9);
+            addText(bx,by-20,'🍀 LUCKY!',cell.gold?'#ffd21f':'#7df9ff');
+            sfx.ready(); }
+        }
+      }
+    }
+    if(landing) tone(160,80,.05,'sine',.05);
+    if(!anyFalling()) afterLanding();
+  }
+  else if(GS.state===STATES.VAULT_PAYOUT) {
+    let transfer = Math.max(10, GS.vaultCoins * dt * 4);
+    if(GS.vaultCoins > transfer) {
+       GS.vaultCoins -= transfer;
+       GS.score += transfer;
+    } else {
+       GS.score += GS.vaultCoins;
+       GS.vaultCoins = 0;
+       endResolve(); 
+    }
+  }
+  else if(GS.state===STATES.JACKPOT){ updateJackpot(dt); }
+  else if(GS.state===STATES.MELT){
+    GS.meltT+=dt; GS.shake=18; GS.shakeSpecial=true;
+    if(GS.meltT>1.6) showGameOver();
+  }
+}
+
+function drawTileAt(cell,x,y,pulse){
+  const spr = cell.core? SPR_core : (cell.mega? SPR.mega[cell.t] : SPR.base[cell.t]);
+  ctx.drawImage(spr,x,y);
+  if(cell.gold){
+    ctx.strokeStyle='#ffd21f'; ctx.lineWidth=3;
+    ctx.globalAlpha=.55+.45*Math.sin(pulse*6);
+    ctx.strokeRect(x+8,y+8,T-16,T-16); ctx.globalAlpha=1;
+  }
+  if(cell.bomb&&GS.hyper){
+    ctx.strokeStyle='#ff7a1f'; ctx.lineWidth=3;
+    ctx.globalAlpha=.5+.5*Math.sin(pulse*10);
+    ctx.beginPath(); ctx.arc(x+T/2,y+T/2,T*.42,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  if(cell.t===C&&!cell.mega&&!cell.core&&!cell.meltDone&&hazardsEnabled()){
+    // Zachte, pulserende gloed op nog-smeltende Crystal-tegels: signaleert de dreiging.
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    ctx.strokeStyle='#ff22a1'; ctx.lineWidth=2.5;
+    ctx.globalAlpha=.30+.25*Math.sin(pulse*4);
+    ctx.beginPath(); ctx.arc(x+T/2,y+T/2,T*.46,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function render(now){
+  const pulse=now/1000;
+  ctx.save();
+  
+  const caAmount = (GS.shakeSpecial && GS.shake > 5) ? GS.shake*0.6 : 0;
+  const shakeAmt = GS.shake;
+  if(shakeAmt>0) ctx.translate((Math.random()-.5)*shakeAmt,(Math.random()-.5)*shakeAmt);
+  
+  {
+    const lvlNow=currentLevel();
+    ctx.fillStyle='#030510'; ctx.fillRect(0,0,CW,CH);
+    ctx.save();
+    
+    let layer1Spd = 10 + lvlNow*3;
+    let layer2Spd = 20 + lvlNow*5;
+    
+    let ox = (now/1000*layer1Spd) % CW; 
+    let oy = (now/1000*layer1Spd*0.5) % CH;
+    let ox2 = (now/1000*layer2Spd) % CW;
+    let oy2 = (now/1000*layer2Spd*0.4) % CH;
+    
+    for(let l=0; l<2; l++) {
+      let lOx = l===0 ? ox : ox2;
+      let lOy = l===0 ? oy : oy2;
+      let count = l===0 ? 60 : 30;
+      ctx.globalAlpha = l===0 ? 0.25 : 0.45;
+      
+      for(let tx=-1; tx<=1; tx++){
+        for(let ty=-1; ty<=1; ty++){
+            ctx.save();
+            ctx.translate(-lOx + (tx+1)*CW, -lOy + (ty+1)*CH);
+            for(let i=0; i<count; i++) {
+                let sx = (Math.sin(i*72.1 + l*12.3)*0.5+0.5) * CW;
+                let sy = (Math.cos(i*41.7 + l*22.1)*0.5+0.5) * CH;
+                
+                if(lvlNow <= 2) {
+                    ctx.fillStyle = i%2===0 ? '#99ccff' : '#ffd699';
+                    ctx.beginPath(); ctx.arc(sx, sy, l===0?3:5, 0, Math.PI*2); ctx.fill();
+                } else if(lvlNow <= 5) {
+                    ctx.strokeStyle = i%2===0 ? '#ff7a1f' : '#00cfff';
+                    ctx.lineWidth = l===0?2:4;
+                    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 30, sy + 15); ctx.stroke();
+                } else {
+                    ctx.fillStyle = i%3===0 ? '#ff2d78' : (i%2===0 ? '#7df9ff' : '#c26bff');
+                    let s = l===0?6:10;
+                    ctx.beginPath(); ctx.moveTo(sx, sy-s); ctx.lineTo(sx+s, sy+s); ctx.lineTo(sx-s, sy+s); ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+    
+    const baseHue = (220 + (lvlNow * 35)) % 360; 
+    const flare=lvlNow>=4 ? (0.5+0.5*Math.sin(pulse*2.0+lvlNow)) : 0;
+    
+    const g=ctx.createRadialGradient(CW/2,CH*0.35,CH*0.05, CW/2,CH*0.5,CH*0.98);
+    const a=(0.25+clamp(lvlNow/10,0,0.5));
+    g.addColorStop(0,`hsla(${baseHue}, 80%, 20%, ${a+flare*0.15})`);
+    g.addColorStop(0.6,`hsla(${(baseHue+20)%360}, 60%, 10%, ${a*0.6})`);
+    g.addColorStop(1,`hsla(${(baseHue+40)%360}, 50%, 5%, 0)`);
+    ctx.fillStyle=g; ctx.fillRect(0,0,CW,CH);
+  }
+
+  if (caAmount > 0) {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.translate(caAmount, 0);
+  }
+
+  if(GS.hyper){
+    const pinkA=(.30+.18*Math.sin(pulse*14));
+    ctx.globalAlpha=clamp(pinkA/0.48,0,1); 
+    ctx.drawImage(HYPER_VIGNETTE,0,0); ctx.globalAlpha=1;
+  }
+  
+  const lvlHue = (200 + currentLevel()*35)%360;
+  const lvlCol = `hsla(${lvlHue}, 100%, 70%, 0.6)`;
+  ctx.strokeStyle='rgba(60,90,140,.25)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let c=0;c<=COLS;c++){ ctx.moveTo(GX+c*T,GY); ctx.lineTo(GX+c*T,GY+GH); }
+  for(let r=0;r<=ROWS;r++){ ctx.moveTo(GX,GY+r*T); ctx.lineTo(GX+GW,GY+r*T); }
+  ctx.stroke();
+  ctx.strokeStyle=lvlCol; ctx.lineWidth=2;
+  ctx.strokeRect(GX-3,GY-3,GW+6,GH+6);
+
+  for(const k in GS.acid){
+    const [c,r]=k.split(',').map(Number);
+    ctx.fillStyle=`rgba(93,255,58,${.14+.08*Math.sin(pulse*5+c+r)})`;
+    ctx.fillRect(cX(c)+2,cY(r)+2,T-4,T-4);
+  }
+
+  const act = GS.drag.on&&GS.drag.axis ? GS.drag : (GS.snapAnim||null);
+  const projCost = (GS.drag.on&&GS.drag.axis) ? (GS.drag.ghostCost||0) : 0;
+  const stress = (projCost>=3) ? clamp((projCost-3)/3,0,1) : 0;
+  
+  function drawStressTile(cell,x,y){
+    let jx=0,jy=0;
+    if(stress>0){ const j=stress*3; jx=(Math.random()-.5)*j; jy=(Math.random()-.5)*j; }
+    drawTileAt(cell,x+jx,y+jy,pulse);
+    if(stress>0){
+      ctx.save(); ctx.globalAlpha=stress*(.35+.25*Math.sin(pulse*14));
+      ctx.fillStyle = stress>.6 ? '#ff2200' : '#ff7a1f';
+      ctx.fillRect(x+jx+6,y+jy+6,T-12,T-12); ctx.restore();
+    }
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(GX,GY,GW,GH); ctx.clip();
+  for(let r=0;r<ROWS;r++){ if(!GS.board[r]) continue; for(let c=0;c<COLS;c++){
+    const cell=GS.board[r][c]; if(!cell) continue;
+    let x=cX(c), y=cY(r)-cell.fall;
+    if(act&&act.axis==='row'&&r===act.idx){
+      let px=((c*T+act.off)%GW+GW)%GW;
+      drawStressTile(cell,GX+px,y);
+      if(px>GW-T) drawStressTile(cell,GX+px-GW,y);
+      continue;
+    }
+    if(act&&act.axis==='col'&&c===act.idx){
+      let py2=((r*T+act.off)%GH+GH)%GH;
+      drawStressTile(cell,x,GY+py2);
+      if(py2>GH-T) drawStressTile(cell,x,GY+py2-GH);
+      continue;
+    }
+    drawTileAt(cell,x,y,pulse);
+    
+    if(GS.state===STATES.MATCH_FLASH && GS.matchFlashRm.has(key(c,r))) {
+       ctx.save();
+       ctx.globalCompositeOperation = 'lighter';
+       ctx.fillStyle = `rgba(255,255,255, ${0.4 + 0.6 * (GS.matchFlashT/0.15)})`;
+       ctx.fillRect(x+2, y+2, T-4, T-4);
+       ctx.lineWidth = 4;
+       ctx.strokeStyle = '#ffffff';
+       ctx.strokeRect(x+4, y+4, T-8, T-8);
+       ctx.restore();
+    }
+  }}
+  if(GS.drag.on&&GS.drag.axis&&!GS.tut.active&&GS.drag.moved){
+    const cost=GS.drag.ghostCost||0;
+    const shift=GS.drag.ghostShift||0;
+    if(shift!==0){
+      const affordable=cost<=GS.energy+1e-6;
+      let gx,gy;
+      if(GS.drag.axis==='row'){ gx=clamp(GS.drag.sx+GS.drag.off,GX+40,GX+GW-40); gy=GY+GS.drag.idx*T-14; }
+      else { gx=GX+GS.drag.idx*T+T/2; gy=clamp(GS.drag.sy+GS.drag.off,GY+30,GY+GH-30)-40; }
+      ctx.save(); ctx.globalAlpha=0.92;
+      ctx.font='bold 20px -apple-system,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const label='⚡ '+Math.round(cost);
+      const w=ctx.measureText(label).width+22;
+      ctx.fillStyle=affordable?'rgba(6,26,36,.9)':'rgba(40,6,6,.92)';
+      ctx.strokeStyle=affordable?'#00cfff':'#ff4a2a'; ctx.lineWidth=2;
+      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(gx-w/2,gy-15,w,30,8); ctx.fill(); ctx.stroke(); }
+      else { ctx.fillRect(gx-w/2,gy-15,w,30); ctx.strokeRect(gx-w/2,gy-15,w,30); }
+      ctx.fillStyle=affordable?'#7df9ff':'#ff8a6a'; ctx.fillText(label,gx,gy+1);
+      ctx.restore(); ctx.textBaseline='alphabetic';
+    }
+  }
+  if(GS.limitFlash>0&&GS.drag.on&&GS.drag.axis){
+    ctx.save(); ctx.globalAlpha=(GS.limitFlash/.3)*.5; ctx.fillStyle='#ff3355';
+    if(GS.drag.axis==='row') ctx.fillRect(GX,GY+GS.drag.idx*T,GW,T);
+    else ctx.fillRect(GX+GS.drag.idx*T,GY,T,GH); ctx.restore();
+  }
+  for(const m of GS.miasmas){
+    ctx.fillStyle=`rgba(46,128,29,${.16+.05*Math.sin(pulse*3)})`;
+    ctx.beginPath();
+    for(let i=0;i<4;i++){
+      ctx.moveTo(cX(m.c)+T*2+Math.sin(pulse*2+i*2)*T+T*0.9, cY(m.r)+T*2+Math.cos(pulse*1.5+i)*T);
+      ctx.arc(cX(m.c)+T*2+Math.sin(pulse*2+i*2)*T, cY(m.r)+T*2+Math.cos(pulse*1.5+i)*T, T*0.9,0,Math.PI*2);
+    }
+    ctx.fill();
+  }
+  for(const h of GS.holes){
+    const hx=cX(h.c)+T/2, hy=cY(h.r)+T/2;
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(hx,hy,T*.42,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#c26bff'; ctx.lineWidth=3;
+    for(let i=0;i<3;i++){
+      ctx.globalAlpha=.6-.15*i;
+      ctx.beginPath(); ctx.arc(hx,hy,T*(.3+.14*i),pulse*3+i,pulse*3+i+4.4); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+  
+  if (caAmount > 0) { ctx.translate(-caAmount, 0); ctx.globalCompositeOperation = 'source-over'; }
+
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(const f of GS.fx){
+    const a=(1-f.t/f.d);
+    if(f.k==='laser'){
+      ctx.strokeStyle=f.col; ctx.globalAlpha=a*.9; ctx.lineWidth=8*a+2;
+      ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+      ctx.globalAlpha=a; ctx.lineWidth=2; ctx.strokeStyle='#fff';
+      ctx.beginPath(); ctx.moveTo(f.x1,f.y1); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+    } else if (f.k==='lightning_bolt') {
+      ctx.strokeStyle=f.col; ctx.globalAlpha=a; ctx.lineWidth=4*a+1;
+      ctx.beginPath(); ctx.moveTo(f.x1, f.y1);
+      let mx = (f.x1 + f.x2)/2 + (Math.random()-0.5)*40;
+      let my = (f.y1 + f.y2)/2 + (Math.random()-0.5)*40;
+      ctx.lineTo(mx, my); ctx.lineTo(f.x2, f.y2); ctx.stroke();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+    } else if(f.k==='ring'){
+      ctx.strokeStyle=f.col; ctx.globalAlpha=a; ctx.lineWidth=6*a+1;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(f.t/f.d)+8,0,Math.PI*2); ctx.stroke();
+    } else if(f.k==='cloud'){
+      ctx.fillStyle=f.col; ctx.globalAlpha=a*.3;
+      for(let i=0;i<4;i++){
+        ctx.beginPath();
+        ctx.arc(f.x+Math.sin(i*2.1)*40*(f.t/f.d+0.3), f.y+Math.cos(i*1.7)*30, 45+f.t*90,0,Math.PI*2); ctx.fill();
+      }
+    } else if(f.k==='suck') {
+      ctx.fillStyle='#c26bff'; ctx.globalAlpha=a;
+      ctx.beginPath(); ctx.arc(f.cx, f.cy, 6, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  for(const p of GS.parts){
+    ctx.globalAlpha=(1-p.t/p.life); ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);
+  }
+  ctx.restore();
+  for(const f of GS.fx){
+    if(f.k!=='text') continue;
+    ctx.globalAlpha=1-f.t/f.d; ctx.font='bold 30px -apple-system,Arial'; ctx.textAlign='center';
+    ctx.fillStyle=f.col; ctx.fillText(f.txt,f.x,f.y-f.t*44); ctx.globalAlpha=1;
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  for(const cn of GS.coins){
+    if(cn.t<0) continue;
+    const u=clamp(cn.t/cn.dur,0,1);
+    const iu=1-u;
+    const x=iu*iu*cn.x0 + 2*iu*u*cn.cx + u*u*cn.x1;
+    const y=iu*iu*cn.y0 + 2*iu*u*cn.cy + u*u*cn.y1;
+    
+    cn.history.push({x,y});
+    if(cn.history.length > 5) cn.history.shift();
+
+    if(cn.history.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(cn.history[0].x, cn.history[0].y);
+      for(let j=1; j<cn.history.length; j++) { ctx.lineTo(cn.history[j].x, cn.history[j].y); }
+      ctx.strokeStyle = cn.col; ctx.lineWidth = 3; ctx.globalAlpha = 0.5; ctx.stroke();
+    }
+
+    const r=5+2*Math.sin((cn.t*20)); 
+    ctx.globalAlpha=0.9; ctx.fillStyle=cn.col;
+    ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=0.35;
+    ctx.beginPath(); ctx.arc(x,y,r+3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
+  // KLUIS (Groeit uitsluitend omhoog en naar rechts door pivot links-onderaan)
+  {
+    const coinGrow  = Math.min(0.6, GS.vaultCoins / 1000);  // 0 zolang de kluis leeg is
+    const pulseGrow = Math.min(0.35, GS.vaultPulse * 0.12); // korte "juice"-bounce bij impact
+    // Ademhaling: een zwellende/krimpende ondertoon die sterker wordt naarmate de kluis voller
+    // zit — versterkt het "op-knappen-staan"-gevoel. Schaalt mee met coinGrow, dus exact 0 bij
+    // een lege kluis (behoudt de "geen overlap in lege staat"-garantie).
+    const breathe = Math.sin(pulse*7) * 0.05 * coinGrow;
+    const vpX = 1 + coinGrow * 0.35 + breathe * 0.5;
+    const vpY = 1 + coinGrow * 1.0 + pulseGrow + breathe;          // groeit vooral verticaal
+    const vw=100, vh=80; 
+    const vx=VAULT_X-vw/2, vy=VAULT_Y-vh/2;
+
+    // Trilling/schudden: hoe voller de kluis, hoe heftiger — alsof hij op knappen staat.
+    const jitterAmt = coinGrow * 6 + (GS.vaultFlash>0 ? GS.vaultFlash*5 : 0);
+    const jx = jitterAmt>0 ? (Math.random()-0.5)*jitterAmt : 0;
+    const jy = jitterAmt>0 ? (Math.random()-0.5)*jitterAmt : 0;
+
+    ctx.save();
+    ctx.translate(jx, jy);
+    
+    // Bottom-Left ankerpunt als pivot voor de transformatie
+    const pivotX = vx;
+    const pivotY = vy + vh;
+    ctx.translate(pivotX, pivotY);
+    ctx.scale(vpX, vpY);
+    ctx.translate(-pivotX, -pivotY);
+    
+    if(GS.vaultCoins > 0) {
+        ctx.fillStyle = '#ffd21f';
+        ctx.beginPath(); 
+        ctx.ellipse(VAULT_X, vy+vh-10, vw*0.4, vh*0.3 + Math.min(vh*0.5, GS.vaultCoins/500), 0, 0, Math.PI, true);
+        ctx.fill();
+    }
+
+    // Randkleur schuift van goud naar oranje/rood naarmate de "druk" (vulling) toeneemt.
+    const pressure = clamp(coinGrow/0.6, 0, 1);
+    const edgeG = Math.round(210 - pressure*140);
+    const edgeB = Math.round(31 - pressure*31);
+    ctx.fillStyle='rgba(24,20,4,.95)'; ctx.strokeStyle=`rgba(255,${edgeG},${edgeB},${.8+.2*GS.vaultFlash})`; ctx.lineWidth=4;
+    if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(vx,vy,vw,vh,12); ctx.fill(); ctx.stroke(); }
+    else { ctx.fillRect(vx,vy,vw,vh); ctx.strokeRect(vx,vy,vw,vh); }
+    if(GS.vaultFlash>0){
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=GS.vaultFlash*0.7; ctx.fillStyle='#ffe98a';
+      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(vx,vy,vw,vh,12); ctx.fill(); }
+      else ctx.fillRect(vx,vy,vw,vh);
+      ctx.restore();
+    }
+    
+    ctx.fillStyle='#ffb300';
+    ctx.beginPath(); ctx.arc(vx+10, vy+10, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(vx+vw-10, vy+10, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(vx+10, vy+vh-10, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(vx+vw-10, vy+vh-10, 4, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // Tekst BUITEN de scale-transform tekenen: anders vervormt het lettertype mee met vpX/vpY
+    // en oogt de kluis "nep" zodra hij groeit. Trilt licht (gedempt) mee voor extra spanning.
+    const svw = vw*vpX, svh = vh*vpY;
+    const svTop = (vy+vh) - svh;
+    const svTextY = svTop + svh/2;
+    ctx.save();
+    ctx.translate(jx*0.6, jy*0.6);
+    ctx.font='bold 28px -apple-system,Arial'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillStyle='#ffe98a'; ctx.fillText('🪙', vx+15, svTextY);
+    ctx.font='bold 26px -apple-system,Arial'; ctx.textAlign='right';
+    ctx.fillText(Math.max(0,Math.floor(GS.vaultCoins)).toLocaleString('en-US'), vx+svw-15, svTextY);
+    ctx.restore();
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  }
+
+  if(GS.multToastVal>1){
+    const u=clamp(GS.multToastT/1.1,0,1);
+    ctx.save(); ctx.globalAlpha=(1-u);
+    const ty=VAULT_Y-60 - u*40;             
+    const scale=1+ (GS.multToastVal>=32?0.6:0.2)*(1-u);
+    ctx.translate(VAULT_X,ty); ctx.scale(scale,scale);
+    ctx.font='bold 36px -apple-system,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle = GS.multToastVal>=128 ? '#ff2d78' : '#ffd21f';
+    ctx.fillText('×'+GS.multToastVal,0,0);
+    ctx.restore();
+  }
+  ctx.globalAlpha=1; ctx.textBaseline='alphabetic';
+
+  // VERTICALE ENERGIEBALK (Aan de rechterkant uitgelijnd met de gridhoogte)
+  const ex0 = GX + GW + 35; 
+  const ey0 = GY;           
+  const ew = 50;             // breder gemaakt (was 28)
+  const eh = GH - 40;        // iets korter zodat het label eronder past
+  const eFrac = GS.energy / ENERGY_MAX;
+  const eLow = eFrac <= 0.25;
+  const blink = (eLow || GS.energyFlash > 0) ? (.35 + .65 * Math.abs(Math.sin(pulse * 12))) : 1;
+  
+  ctx.fillStyle = 'rgba(6,18,26,.92)';
+  ctx.fillRect(ex0, ey0, ew, eh);
+  
+  const eGrad = ctx.createLinearGradient(0, ey0 + eh, 0, ey0);
+  if (eLow) {
+    eGrad.addColorStop(0, '#ff2200');
+    eGrad.addColorStop(1, '#ff7a1f');
+  } else {
+    eGrad.addColorStop(0, '#0077aa');
+    eGrad.addColorStop(0.5, '#00cfff');
+    eGrad.addColorStop(1, '#7df9ff');
+  }
+  
+  const fillHeight = (eh - 4) * eFrac;
+  ctx.globalAlpha = blink;
+  ctx.fillStyle = eGrad;
+  ctx.fillRect(ex0 + 2, ey0 + eh - 2 - fillHeight, ew - 4, fillHeight);
+  ctx.globalAlpha = 1;
+  
+  ctx.strokeStyle = 'rgba(0,20,30,.9)';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < ENERGY_MAX; i++) {
+    const sy = ey0 + eh - 2 - (eh - 4) * i / ENERGY_MAX;
+    ctx.beginPath();
+    ctx.moveTo(ex0 + 3, sy);
+    ctx.lineTo(ex0 + ew - 3, sy);
+    ctx.stroke();
+  }
+  
+  ctx.globalAlpha = blink;
+  ctx.strokeStyle = eLow ? '#ff4a2a' : '#00cfff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ex0, ey0, ew, eh);
+  ctx.globalAlpha = 1;
+
+  // Vroege waarschuwing vóór de deadlock daadwerkelijk intreedt: bij <15% energie
+  // een aparte, dringendere pulserende buitenrand — nog los van de deadlock-klok zelf.
+  const eCritical = eFrac <= 0.15 && !GS.deadlockActive;
+  if(eCritical){
+    const cpulse = .35 + .65 * Math.abs(Math.sin(pulse * 8));
+    ctx.strokeStyle = `rgba(255,50,30,${cpulse})`;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(ex0 - 5, ey0 - 5, ew + 10, eh + 10);
+  }
+  
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 24px -apple-system,Arial';
+  ctx.fillStyle = eLow ? '#ff8a6a' : '#7df9ff';
+  ctx.fillText('⚡', ex0 + ew / 2, ey0 + eh + 30);
+
+  // MULTIPLIER-METER (naast de energiebalk): vult per combo-stap, loopt leeg zodra de combo
+  // is afgelopen — zo zie je meteen hoe dicht je bij Hyperdrive (×512+) of Jackpot (×4096+) zit.
+  const mx0 = ex0 + ew + 16;
+  const my0 = ey0;
+  const mw = 36;
+  const mh = eh;
+  const mChain = GS.comboChain; // 0 = geen actieve combo
+  const HYPER_MIN_CHAIN = 10; // ×512
+  const mFrac = clamp(mChain / JACKPOT_CASCADE, 0, 1);
+  const mHyperZone = mChain >= HYPER_MIN_CHAIN && mChain < JACKPOT_CASCADE;
+  const mJackpotZone = mChain >= JACKPOT_CASCADE;
+  const mBlink = (mHyperZone || mJackpotZone) ? (.35 + .65 * Math.abs(Math.sin(pulse * (mJackpotZone ? 14 : 9)))) : 1;
+
+  ctx.fillStyle = 'rgba(6,18,26,.92)';
+  ctx.fillRect(mx0, my0, mw, mh);
+
+  const mGrad = ctx.createLinearGradient(0, my0 + mh, 0, my0);
+  mGrad.addColorStop(0, '#7a3fae');
+  mGrad.addColorStop(HYPER_MIN_CHAIN / JACKPOT_CASCADE, '#c26bff');
+  mGrad.addColorStop(1, mJackpotZone ? '#ff2d78' : '#ffd21f');
+
+  const mFillHeight = (mh - 4) * mFrac;
+  ctx.globalAlpha = mBlink;
+  ctx.fillStyle = mGrad;
+  ctx.fillRect(mx0 + 2, my0 + mh - 2 - mFillHeight, mw - 4, mFillHeight);
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = 'rgba(0,20,30,.9)';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < JACKPOT_CASCADE; i++) {
+    const sy = my0 + mh - 2 - (mh - 4) * i / JACKPOT_CASCADE;
+    ctx.beginPath(); ctx.moveTo(mx0 + 3, sy); ctx.lineTo(mx0 + mw - 3, sy); ctx.stroke();
+  }
+
+  // Markeerlijn bij combo 10 (×512) — vanaf hier kan Hyperdrive starten
+  const hyperLineY = my0 + mh - 2 - (mh - 4) * HYPER_MIN_CHAIN / JACKPOT_CASCADE;
+  ctx.strokeStyle = '#ffd21f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(mx0 - 4, hyperLineY); ctx.lineTo(mx0 + mw + 4, hyperLineY); ctx.stroke();
+
+  ctx.globalAlpha = mBlink;
+  ctx.strokeStyle = mJackpotZone ? '#ff2d78' : (mHyperZone ? '#ffd21f' : '#c26bff');
+  ctx.lineWidth = 2;
+  ctx.strokeRect(mx0, my0, mw, mh);
+  ctx.globalAlpha = 1;
+
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 16px -apple-system,Arial';
+  ctx.fillStyle = mJackpotZone ? '#ff5599' : (mHyperZone ? '#ffd21f' : '#c26bff');
+  const mLabel = mChain >= 2 ? ('×' + cascadeMultiplier(mChain).toLocaleString('en-US')) : '🔥';
+  ctx.fillText(mLabel, mx0 + mw / 2, my0 + mh + 26);
+
+  // ONDER SPEELVELD: HUIDIGE SCORE & LEVEL (Symmetrisch links & rechts uitgelijnd)
+  const playerLvl = currentLevel();
+  const borderCol = `hsla(${(200 + playerLvl*35)%360}, 100%, 70%, 0.7)`;
+  
+  // Links uitgelijnd onder het speelveld (op x=GX)
+  ctx.font = 'bold 30px -apple-system,Arial'; 
+  ctx.textAlign = 'left'; 
+  ctx.fillStyle = '#ffe98a';
+  ctx.fillText('COINS: ' + Math.floor(GS.score).toLocaleString('en-US'), GX, CH - 50);
+
+  // Rechts uitgelijnd onder het speelveld (op x=GX+GW)
+  ctx.font = 'bold 18px -apple-system,Arial'; 
+  ctx.textAlign = 'right'; 
+  ctx.fillStyle = 'rgba(160,180,210,.95)';
+  const nextThr = playerLvl <= LEVEL_THRESHOLDS.length ? LEVEL_THRESHOLDS[playerLvl-1] : null;
+  if(nextThr){
+    ctx.fillText('LEVEL ' + playerLvl + '  →  ' + nextThr.toLocaleString('en-US'), GX + GW, CH - 50);
+    const prevThr = playerLvl >= 2 ? LEVEL_THRESHOLDS[playerLvl-2] : 0;
+    const frac = clamp((GS.score-prevThr)/(nextThr-prevThr),0,1);
+    const bw = 240, bh = 8, bx = GX + GW - bw, by = CH - 35;
+    ctx.fillStyle = 'rgba(60,90,140,.4)'; 
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = borderCol; 
+    ctx.fillRect(bx, by, bw * frac, bh);
+  } else {
+    // Voorbij de vaste levellijst: toon prestige-voortgang i.p.v. een dode 'MAX'-melding.
+    let t=LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length-1], l=LEVEL_THRESHOLDS.length+1;
+    while(l<playerLvl){ t*=2.3; l++; }
+    const prevThr2=t, nextThr2=t*2.3;
+    ctx.fillText('LEVEL ' + playerLvl + '  ⭐×' + GS.prestigeLevel, GX + GW, CH - 50);
+    const frac2 = clamp((GS.score-prevThr2)/(nextThr2-prevThr2),0,1);
+    const bw2 = 240, bh2 = 8, bx2 = GX + GW - bw2, by2 = CH - 35;
+    ctx.fillStyle = 'rgba(60,90,140,.4)'; 
+    ctx.fillRect(bx2, by2, bw2, bh2);
+    ctx.fillStyle = '#ffd21f'; 
+    ctx.fillRect(bx2, by2, bw2 * frac2, bh2);
+  }
+
+  if(GS.hyper){
+    ctx.textAlign='center'; ctx.font='bold 40px -apple-system,Arial';
+    ctx.fillStyle=`rgba(255,45,120,${.6+.4*Math.sin(pulse*12)})`;
+    ctx.fillText('HYPERDRIVE '+Math.ceil(GS.hyperT)+'s',CW/2,40);
+    ctx.font='bold 16px -apple-system,Arial'; ctx.fillStyle='rgba(255,200,220,.9)';
+    ctx.fillText('Coin multiplier active · orange bomb tiles clear 3×3',CW/2,64);
+  }
+
+  if(GS.popupActive){
+    ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(0,0,CW,CH);
+    const pw=Math.min(CW*0.55,460), ph=220, px2=CW/2-pw/2, py2=CH/2-ph/2;
+    ctx.fillStyle='rgba(10,16,28,.95)'; ctx.fillRect(px2,py2,pw,ph);
+    ctx.strokeStyle=GS.popupCol; ctx.lineWidth=3; ctx.strokeRect(px2,py2,pw,ph);
+    ctx.font='bold 34px -apple-system,Arial'; ctx.textAlign='center'; ctx.fillStyle=GS.popupCol;
+    ctx.fillText(GS.popupTitle,CW/2,py2+45);
+    ctx.font='22px -apple-system,Arial'; ctx.fillStyle='#ddeeff';
+    const words2=GS.popupText.split(' '); let line2='', ty2=py2+90;
+    for(const w of words2){
+      const test2=line2?line2+' '+w:w;
+      if(ctx.measureText(test2).width>pw-40){ ctx.fillText(line2,CW/2,ty2); line2=w; ty2+=30; }
+      else line2=test2;
+    }
+    if(line2) ctx.fillText(line2,CW/2,ty2);
+    ctx.fillStyle=`rgba(186,255,94,${.5+.5*Math.sin(pulse*3)})`;
+    ctx.font='bold 18px -apple-system,Arial'; ctx.fillText('TAP TO CONTINUE',CW/2,py2+ph-20);
+  }
+
+  if(GS.tut.active){
+    ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,CW,CH);
+    const step=TUT_STEPS[GS.tut.step];
+    if(step.guide){
+      const gx = GS.tut.axis==='col' ? GX+GS.tut.idx*T : GX; const gy = GS.tut.axis==='row' ? GY+GS.tut.idx*T : GY;
+      const gw = GS.tut.axis==='col' ? T : GW; const gh = GS.tut.axis==='row' ? T : GH;
+      ctx.save(); ctx.beginPath(); ctx.rect(gx,gy,gw,gh); ctx.clip();
+      ctx.fillStyle='rgba(0,0,0,1)'; ctx.fillRect(gx,gy,gw,gh);
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        const cell=GS.board[r][c]; if(!cell) continue;
+        let ox=cX(c), oy=cY(r);
+        if(GS.drag.on&&GS.drag.axis==='row'&&r===GS.drag.idx) ox+=GS.drag.off;
+        if(GS.drag.on&&GS.drag.axis==='col'&&c===GS.drag.idx) oy+=GS.drag.off;
+        drawTileAt(cell,ox,oy,pulse);
+      }
+      ctx.restore();
+      const glow=.5+.5*Math.sin(pulse*5);
+      ctx.strokeStyle=`rgba(125,249,255,${.6+.4*glow})`; ctx.lineWidth=4; ctx.strokeRect(gx+2,gy+2,gw-4,gh-4);
+      ctx.fillStyle=`rgba(125,249,255,${.7+.3*glow})`; ctx.font='bold 40px -apple-system,Arial'; ctx.textAlign='center';
+      ctx.fillText('⇐ slide left', gx+gw/2, gy-14);
+    }
+    const bw=Math.min(CW*0.82,760), bx=CW/2-bw/2, by=CH-260, bh=150;
+    ctx.fillStyle='rgba(8,14,24,.92)'; ctx.fillRect(bx,by,bw,bh);
+    ctx.strokeStyle='#7df9ff'; ctx.lineWidth=2; ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle='#7df9ff'; ctx.font='bold 16px -apple-system,Arial'; ctx.textAlign='left';
+    ctx.fillText('TUTORIAL  ·  '+(GS.tut.step+1)+'/'+TUT_STEPS.length, bx+18, by+26);
+    ctx.fillStyle='#eaf6ff'; ctx.font='19px -apple-system,Arial';
+    const words=step.text.split(' '); let line='', ty=by+56;
+    for(const w of words){
+      const test=line?line+' '+w:w;
+      if(ctx.measureText(test).width>bw-36){ ctx.fillText(line,bx+18,ty); line=w; ty+=26; }
+      else line=test;
+    }
+    if(line) ctx.fillText(line,bx+18,ty);
+    if(!step.guide){
+      ctx.fillStyle=`rgba(186,255,94,${.5+.5*Math.sin(pulse*3)})`;
+      ctx.font='bold 16px -apple-system,Arial'; ctx.textAlign='right';
+      ctx.fillText('tap to continue ▸', bx+bw-18, by+bh-14);
+    }
+  }
+
+  if(GS.deadlockActive){
+    const secs=Math.ceil(GS.deadlockT);
+    const urg=1-clamp(GS.deadlockT/DEADLOCK_SECONDS,0,1); 
+    const flash=(.5+.5*Math.sin(pulse*(6+urg*10)));
+    ctx.textAlign='center'; ctx.fillStyle=`rgba(255,${90-urg*70|0},40,${.85})`;
+    ctx.font='bold 22px -apple-system,Arial'; ctx.fillText('⚠ LAST CHANCE — ONE FREE 1-TILE MOVE!',CW/2,GY-52);
+    ctx.font='bold '+(70+urg*40)+'px -apple-system,Arial';
+    ctx.fillStyle=`rgba(255,${120-urg*100|0},30,${.55+.45*flash})`; ctx.fillText(secs,CW/2,GY-70);
+  }
+
+  if(GS.state===STATES.JACKPOT&&GS.jackpotPhase===0){
+    const a=clamp(GS.jackpotTimer/1.2,0,1);
+    ctx.fillStyle=`rgba(0,0,0,${a*0.7})`; ctx.fillRect(0,0,CW,CH);
+    ctx.save(); const s=1+a*1.5; ctx.translate(CW/2,CH/2); ctx.scale(s,s);
+    ctx.font='bold 60px -apple-system,Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=`rgba(255,210,31,${a})`; ctx.fillText('🎰 JACKPOT ×512!',0,0);
+    ctx.font='bold 24px -apple-system,Arial'; ctx.fillStyle=`rgba(255,180,220,${a*0.9})`;
+    ctx.fillText('ALL TILES → VAULT',0,50); ctx.restore();
+  }
+  if(GS.state===STATES.MELT){
+    const a=GS.meltT/1.6; ctx.fillStyle=`rgba(255,${120-a*100|0},0,${a*.85})`; ctx.fillRect(0,0,CW,CH);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=10*(1-a)+1; ctx.globalAlpha=1-a;
+    ctx.beginPath(); ctx.arc(CW/2,CH/2,a*CW,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
+
+function loop(now){
+  const dt=Math.min((now-last)/1000,.05); last=now;
+  if(GS.state!==STATES.TITLE&&GS.state!==STATES.OVER) update(dt);
+  render(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function tileSpriteDataURL(sprCanvas, size){
+  const c=mkCanvas(size,size), g=c.getContext('2d');
+  g.drawImage(sprCanvas,0,0,T,T,0,0,size,size);
+  return c.toDataURL();
+}
+let recipeIconCache=null;
+let elementGlossaryBuilt=false;
+function buildElementGlossary(){
+  if(elementGlossaryBuilt) return;
+  elementGlossaryBuilt=true;
+  const el=document.getElementById('elementGlossary'); if(!el) return;
+  const ICON=30;
+  const tileImg=(spr,size)=>`<img src="${tileSpriteDataURL(spr,size)}" style="width:${size}px;height:${size}px;vertical-align:middle;margin-right:8px;border-radius:4px;" />`;
+  const entries=[
+    { spr:SPR.base[F], name:'Fire', col:ECOL[F], desc:'Base element. Solid, reliable points.' },
+    { spr:SPR.base[I], name:'Ice', col:ECOL[I], desc:'Base element. One huge Ice match (6+) triggers Blizzard.' },
+    { spr:SPR.base[G], name:'Poison', col:ECOL[G], desc:'Base element, worth more than Fire or Ice.' },
+    { spr:SPR.base[E], name:'Electric', col:ECOL[E], desc:'Low points — but every Electric tile you match refills your energy. Your main power source.' },
+    { spr:SPR.base[V], name:'Void', col:ECOL[V], desc:'High points — but every Void tile you match drains your energy. High risk, high reward.' },
+    { spr:SPR.base[C], name:'Crystal', col:ECOL[C], desc:'Rarest element, biggest payout. But Crystals glow and slowly melt downward, turning whatever they touch into Void. Clear them fast!' },
+  ];
+  let html='';
+  for(const en of entries){
+    html+=`<div class="eg"><div class="nm" style="color:${en.col};">${tileImg(en.spr,ICON)}${en.name}</div><div class="ds">${en.desc}</div></div>`;
+  }
+  html+=`<div class="eg wide"><div class="nm" style="color:#ffffff;">${tileImg(SPR.mega[F],ICON)}⬟ Mega tile</div><div class="ds">Formed from a 2×2 block of one element, or a match of 5+ in a row. Match it in a line of 3+ to unleash a powerful elemental blast.</div></div>`;
+  html+=`<div class="eg wide"><div class="nm" style="color:#ffffff;">${tileImg(SPR_core,ICON)}★ Core</div><div class="ds">Appears during a big cascade (combo 7+). Fuses with your current combo for one huge bonus effect.</div></div>`;
+  el.innerHTML=html;
+}
+
+function buildRecipeList(){
+  buildElementGlossary();
+  const el=document.getElementById('recipeList'); el.innerHTML=''; const lvl=currentLevel();
+
+  if(!recipeIconCache){
+    const ICON=34, MINI=16;
+    const tileImg=(spr,size)=>`<img src="${tileSpriteDataURL(spr,size)}" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:4px;" />`;
+    // Cluster van 3 mini-tegels = visuele stand-in voor "een match van dit element" (i.p.v. 1 losse tegel,
+    // wat ten onrechte suggereerde dat je maar 1 tegel van elk naast elkaar hoeft te krijgen).
+    const cluster=(spr)=>`<span style="display:inline-flex;gap:1px;">${tileImg(spr,MINI)}${tileImg(spr,MINI)}${tileImg(spr,MINI)}</span>`;
+    const badge6=`<span title="one of the two needs 6+" style="background:#ffd21f;color:#1a1400;font-size:10px;font-weight:bold;border-radius:8px;padding:1px 5px;margin:0 4px;">6+</span>`;
+    const plus=`<span style="color:#7df9ff;margin:0 2px;font-weight:bold;">+</span>`;
+    recipeIconCache = {
+      1: cluster(SPR.base[F])+plus+cluster(SPR.base[I])+badge6,
+      2: cluster(SPR.base[E])+plus+cluster(SPR.base[G])+badge6,
+      3: cluster(SPR.base[F])+plus+cluster(SPR.base[E])+badge6,
+      6: cluster(SPR.base[I])+plus+cluster(SPR.base[E])+badge6,
+      5: cluster(SPR.base[F])+plus+cluster(SPR.base[G])+badge6,
+      // Blizzard is GEEN twee-groepen-combo (dat kan structureel niet: gelijke, aangrenzende
+      // elementen worden altijd al tot 1 groep samengevoegd) — het is één enkele grote match.
+      8: cluster(SPR.base[I])+tileImg(SPR.base[I],MINI)+tileImg(SPR.base[I],MINI)+badge6+`<span style="color:#9ab;font-size:11px;">one huge Ice match</span>`,
+      17: tileImg(SPR.mega[V],ICON)+`<span style="color:#9ab;margin-left:8px;font-size:12px;">next to any match</span>`,
+      14: [F,I,G,E].map(t=>tileImg(SPR.base[t],MINI)).join('')+`<span style="color:#9ab;margin-left:8px;font-size:11px;">4+ big matches (6+), one chain</span>`
+    };
+  }
+
+  for(const r of RECIPES){
+    const on=GS.unlocked.has(r.id); const needLvl=RECIPE_UNLOCK_LEVEL[r.id]; const reachable=lvl>=needLvl;
+    const d=document.createElement('div'); d.className='rc '+(on?'on':'off');
+    let desc;
+    if(on) desc=r.d;
+    else if(!reachable) desc='🔒 Unlocks at level '+needLvl+'.';
+    else desc='Discover this elemental reaction in the game.';
+    
+    const vis = on ? `<div style="margin-top:6px; margin-bottom:4px; display:flex; align-items:center;">${recipeIconCache[r.id]}</div>` : '';
+    
+    d.innerHTML='<div class="nm">'+(on?r.n:'??? — locked')+'</div>'+vis+'<div class="ds">'+desc+'</div>';
+    el.appendChild(d);
+  }
+}
+
+function onTap(el,fn){
+  let handled=false;
+  el.addEventListener('touchend',(e)=>{
+    e.preventDefault(); e.stopPropagation(); handled=true; setTimeout(()=>handled=false,400); fn();
+  },{passive:false});
+  el.addEventListener('click',(e)=>{ if(handled) return; fn(); });
+}
+
+// Zorg er dynamisch voor dat de knop events altijd werken en er geen foutmelding komt als iets onverhoopt toch mist in HTML
+const recipeBtn = document.getElementById('recipeBtn');
+const closeRecipesBtn = document.getElementById('closeRecipes');
+if(recipeBtn) onTap(recipeBtn,()=>{ buildRecipeList(); document.getElementById('recipes').classList.remove('hidden'); });
+if(closeRecipesBtn) onTap(closeRecipesBtn,()=>{ document.getElementById('recipes').classList.add('hidden'); });
+
+let gameStarted=false;
+function startGame(){
+  if(gameStarted) return; // voorkomt dubbele trigger door overlappende listeners
+  gameStarted=true;
+  initAudio(); 
+  if(AC && AC.state==='suspended') { AC.resume().catch(()=>{}); }
+  const titleEl = document.getElementById('title');
+  if(titleEl) titleEl.classList.add('hidden'); 
+  reset();
+  if(!store.get('rf_help_seen')){
+    const helpEl=document.getElementById('helpOverlay');
+    if(helpEl) helpEl.classList.remove('hidden');
+  } else {
+    hintOnce('slide','👆 Swipe to line up 3+ tiles for coins. Chain cascades to multiply them! Dragging to think is free — you only pay for the net move.');
+  }
+}
+
+let titleScreen = document.getElementById('title');
+
+// Zelfherstellend script: als de div#title mist in de HTML, injecteert JS deze zelf netjes in de wrap
+if (!titleScreen) {
+    titleScreen = document.createElement('div');
+    titleScreen.id = 'title';
+    titleScreen.className = 'overlay';
+    titleScreen.innerHTML = '<h1 class="neon">RADIANT<br><span>FUSION</span></h1><div class="sub" id="titleBest"></div><div id="modeSelect"><button class="modeBtn active" id="modeCoreBtn" data-mode="core">⚡ CORE</button><button class="modeBtn" id="modeZenBtn" data-mode="zen">🧘 ZEN</button></div><div class="modeDesc" id="modeDesc"></div><div class="tap">TAP TO START</div><div class="credit">Made by Coatan</div>';
+    const wrap = document.getElementById('wrap') || document.body;
+    wrap.appendChild(titleScreen);
+}
+updateTitleBest();
+
+// -- Spelmodus-keuze (Zen / Core) op het titelscherm --
+function selectMode(m){
+  GS.mode = (m===GAME_MODES.ZEN) ? GAME_MODES.ZEN : GAME_MODES.CORE;
+  const zenBtn = document.getElementById('modeZenBtn');
+  const coreBtn = document.getElementById('modeCoreBtn');
+  if(zenBtn) zenBtn.classList.toggle('active', GS.mode===GAME_MODES.ZEN);
+  if(coreBtn) coreBtn.classList.toggle('active', GS.mode===GAME_MODES.CORE);
+  const descEl = document.getElementById('modeDesc');
+  if(descEl) descEl.textContent = modeConfig().desc;
+}
+selectMode(GAME_MODES.CORE);
+const modeZenBtn = document.getElementById('modeZenBtn');
+const modeCoreBtn = document.getElementById('modeCoreBtn');
+function wireModeBtn(el, mode){
+  if(!el) return;
+  const handler=(e)=>{ e.preventDefault(); e.stopPropagation(); selectMode(mode); };
+  el.addEventListener('click', handler);
+  el.addEventListener('touchend', handler, {passive:false});
+}
+wireModeBtn(modeZenBtn, GAME_MODES.ZEN);
+wireModeBtn(modeCoreBtn, GAME_MODES.CORE);
+
+// Sluitknop van de nieuwe statische help-overlay (vervangt de oude stap-voor-stap tutorial)
+const closeHelpBtn = document.getElementById('closeHelp');
+if(closeHelpBtn) onTap(closeHelpBtn, ()=>{
+  const helpEl=document.getElementById('helpOverlay');
+  if(helpEl) helpEl.classList.add('hidden');
+  store.set('rf_help_seen','1');
+  hintOnce('slide','👆 Swipe to line up 3+ tiles for coins. Chain cascades to multiply them! Dragging to think is free — you only pay for the net move.');
+});
+
+// Ontgrendel de game na klik op start
+if (titleScreen) {
+  // Als hij per ongeluk 'hidden' had, reset dit
+  titleScreen.classList.remove('hidden'); 
+  onTap(titleScreen, startGame);
+} 
+
+// Veiligheidsnet voor mobiel waarbij de title screen snel verdwijnt — negeert taps op de
+// modusknoppen, zodat een moduskeuze niet per ongeluk meteen de game start.
+function isModeBtnTarget(e){
+  const t=e.target;
+  return !!(t && t.closest && t.closest('.modeBtn'));
+}
+window.addEventListener('click', (e)=>{ if(!isModeBtnTarget(e)) startGame(); }, { once: true });
+window.addEventListener('touchstart', (e)=>{ if(!isModeBtnTarget(e)) startGame(); }, { once: true });
+
+// Na "SHUTDOWN": pas na tikken terug naar het allereerste titelscherm (niet direct een nieuwe run).
+function backToTitle(){
+  const overEl=document.getElementById('over');
+  if(overEl) overEl.classList.add('hidden');
+  GS.state=STATES.TITLE;
+  gameStarted=false;
+  const titleEl=document.getElementById('title');
+  if(titleEl) titleEl.classList.remove('hidden');
+  updateTitleBest();
+}
+const overScreen = document.getElementById('over');
+const retryBtn = document.getElementById('retryBtn');
+if(retryBtn) onTap(retryBtn, backToTitle);
+if(overScreen) onTap(overScreen, backToTitle);
+})();
+</script>
+</body>
+</html>
