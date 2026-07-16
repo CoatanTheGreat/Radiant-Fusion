@@ -1435,6 +1435,7 @@ function endResolve(){
     }
   }
   const pendingHyper = GS.hyperPending;
+  const hyperCombo = GS.comboChain;
   GS.turnRemovedTotal=0; GS.turnBestCombo=0;
   GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear();
   GS.hyperPending=false;
@@ -1442,7 +1443,7 @@ function endResolve(){
   // Uitgestelde Hyperdrive: pas NA vault-payout, levelcheck en popup-tonen.
   // De timer zelf pauzeert ook al bij popupActive (eerder gefixt), dus als checkLevelUp()
   // een level-up popup heeft geopend, loopt de klok pas als de speler die wegtikt.
-  if(pendingHyper) startHyper();
+  if(pendingHyper) startHyper(hyperCombo);
   GS.state=STATES.IDLE;
 }
 function startResolve(isSlide){
@@ -1453,8 +1454,8 @@ function startResolve(isSlide){
   if(isSlide) applyTurnStatuses();
   GS.state=STATES.RESOLVE; GS.stepDelay=.25;
 }
-function startHyper(){
-  if(GS.comboChain<10||GS.comboChain>=JACKPOT_CASCADE) return; // alleen binnen ×512–×2048 — geldt voor ALLE trigger-paden (ook The Big Bang-recept)
+function startHyper(comboAmount){
+  if(comboAmount<10||comboAmount>=JACKPOT_CASCADE) return; // alleen binnen ×512–×2048 — geldt voor ALLE trigger-paden (ook The Big Bang-recept)
   GS.hyper=true; GS.hyperT=16; GS.hyperThisChain=true; // duur verdubbeld (was 8s)
   toast('🚀 HYPERDRIVE!'); boom(1.5); GS.shake=14; GS.shakeSpecial=true; GS.timeScale = 0.25;
 }
