@@ -102,9 +102,10 @@
     <h2 style="color:#7df9ff;text-shadow:0 0 14px #00cfff;letter-spacing:.15em;margin-bottom:14px;font-size:24px;">HOW TO PLAY</h2>
     <div class="sub" style="max-width:640px;line-height:1.7;letter-spacing:.03em;font-size:min(3.2vw,17px);">
       Swipe a row or column to line up 3+ matching tiles.<br>
-      Dragging to look around is free — you only pay ⚡ energy for your final move.<br>
-      Match Electric (⚡) tiles to refill your energy — that's your main power source, not time.<br>
-      Chain cascades for huge multipliers, and discover elemental combinations for special effects!
+      Dragging to look around is free — you only pay ⚡ energy for your final move. Sit idle too long, though, and the reactor drains on its own.<br>
+      Match Electric (⚡) tiles to refill your energy — that's your main power source.<br>
+      Chain cascades for huge multipliers, and discover elemental combinations for special effects!<br>
+      Out of energy for any move? You get a board reshuffle (limited per level), then one last free move — miss both and it's shutdown.
     </div>
     <button class="btn" id="closeHelp" style="margin-top:28px;">GOT IT</button>
   </div>
@@ -140,16 +141,16 @@ const CONFIG = {
   },
   ENERGY: {
     MAX: 30,
-    ELECTRIC_TILE_GAIN: 0.35,         
+    ELECTRIC_TILE_GAIN: 0.45,          // was 0.35 — betere regen om hogere levels bij te benen
     VOID_TILE_COST: 0.6,              
   },
   SLIDE_COST: {
     GROWTH_BASE: 1.8,       
-    GROWTH_PER_LEVEL: 0.35, 
+    GROWTH_PER_LEVEL: 0.15, // was 0.35 — vlakkere kostencurve, geen brute sprong vanaf level 3
   },
   SHAKE: { MAX: 7, MAX_SPECIAL: 20 },
   HAZARDS: { MAX_HOLES: 1 },
-  HYPERDRIVE: { BOMB_CHANCE: 0.45, MAX_BOOMS_PER_TURN: 3, DURATION: 16 },
+  HYPERDRIVE: { BOMB_CHANCE: 0.45, MAX_BOOMS_PER_TURN: 3, DURATION: 24 }, // was 16 — nu ook echt de bron van GS.hyperT
   LEVELS: {
     THRESHOLDS: [15000, 65000, 185000, 450000, 950000, 2100000, 4800000, 11000000, 25000000],
     SLIDE_COST_LEVEL_CAP: 12,        
@@ -163,6 +164,7 @@ const CONFIG = {
     JACKPOT_CASCADE: 13,             
   },
   DEADLOCK: { SECONDS: 8, LAST_CHANCE_MAX_SHIFT: 1 },
+  IDLE: { WARN_SECONDS: 15, DRAIN_PER_SEC: 1.5 }, // straft eindeloos stilzitten af zonder een harde countdown per zet
   DROPS: { LUCKY_CHANCE: 0.02 },
   VAULT: { X: 106, Y_OFFSET_FROM_BOTTOM: 150, OVERFLOW_PULSE_THRESHOLD: 0.9, OVERFLOW_SPAWN_CHANCE: 0.7 },
   MODE: {
@@ -204,6 +206,7 @@ const SHAKE_MAX_SPECIAL=CONFIG.SHAKE.MAX_SPECIAL;
 const MAX_HOLES=CONFIG.HAZARDS.MAX_HOLES;
 const HYPER_BOMB_CHANCE=CONFIG.HYPERDRIVE.BOMB_CHANCE;
 const MAX_BOMB_BOOMS_PER_TURN=CONFIG.HYPERDRIVE.MAX_BOOMS_PER_TURN;
+const HYPER_DURATION=CONFIG.HYPERDRIVE.DURATION;
 
 const LEVEL_THRESHOLDS=CONFIG.LEVELS.THRESHOLDS;
 const PRESTIGE_START_LEVEL = LEVEL_THRESHOLDS.length+2; 
@@ -293,7 +296,8 @@ const GS = {
   fx: [], parts: [], shake: 0, shakeSpecial: false, meltT: 0, matchFlashT: 0, matchFlashRm: new Set(),
   turnNr: 0, deadlockActive: false, deadlockT: 0, reshuffleLevel: 0, reshuffleCount: 0, lastAnnouncedLevel: 1,
   moveEarned: 0, stepDelay: 0, lastChanceActive: false, rescueMove: null, rescueMoveText: '',
-  popupActive: false, popupTitle: '', popupText: '', popupCol: '#fff',
+  idleT: 0, idleWarned: false, bgSpeedMult: 1, bgClock: 0,
+  popupActive: false, popupTitle: '', popupText: '', popupCol: '#fff', popupQueue: [],
   tut: {active:false, step:0, axis:null, idx:0, needMatch:false, waited:0}, tutDone: true,
   unlocked: new Set(JSON.parse(store.get('rf_recipes')||'[]')), hintsSeen: new Set(JSON.parse(store.get('rf_hints')||'[]')),
 };
@@ -536,6 +540,7 @@ function reset(){
   GS.bigChainElems.clear(); GS.reactionsThisTurn=0; GS.turnRemovedTotal=0; GS.turnBestCombo=0;
   GS.lastAnnouncedLevel=1; GS.deadlockActive=false; GS.deadlockT=0; GS.popupActive=false;
   GS.lastChanceActive=false; GS.rescueMove=null; GS.rescueMoveText=''; GS.currentTurnIsSlide=false;
+  GS.idleT=0; GS.idleWarned=false; GS.bgSpeedMult=1; GS.bgClock=0; GS.popupQueue=[];
   GS.snapAnim=null; GS.drag.on=false; GS.tut.active=false; GS.reshuffleLevel=0; GS.reshuffleCount=0;
   initBoard(); GS.state=STATES.IDLE;
 }
@@ -1132,6 +1137,7 @@ function endResolve(){
   GS.turnRemovedTotal=0; GS.turnBestCombo=0; GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear(); GS.hyperPending=false;
   checkLevelUp();
   if(pendingHyper) startHyper();
+  GS.idleT=0; GS.idleWarned=false;
   GS.state=STATES.IDLE;
 }
 function startResolve(isSlide){
@@ -1150,7 +1156,7 @@ function startResolve(isSlide){
 }
 function startHyper(){
   if(GS.jackpotArmed||GS.hyper) return; 
-  GS.hyper=true; GS.hyperT=16; GS.hyperThisChain=true;
+  GS.hyper=true; GS.hyperT=HYPER_DURATION; GS.hyperThisChain=true;
   toast('🚀 HYPERDRIVE!'); boom(1.5); GS.shake=14; GS.shakeSpecial=true; GS.timeScale = 0.25;
 }
 
@@ -1181,7 +1187,7 @@ function reshuffleBoard(remaining, max){
   toast("🔄 NO MOVES — Board reshuffled, 60% ⚡ restored!"+remText); GS.state=STATES.FALL;
 }
 function showGameOver(){
-  GS.state=STATES.OVER; GS.popupActive=false; 
+  GS.state=STATES.OVER; GS.popupActive=false; GS.popupQueue=[];
   const finalScoreRounded=Math.floor(GS.score);
   document.getElementById('finalScore').textContent=finalScoreRounded.toLocaleString('en-US');
   const bestEl=document.getElementById('bestLine');
@@ -1189,7 +1195,8 @@ function showGameOver(){
     GS.highscore=finalScoreRounded; store.set('rf_highscore',String(GS.highscore));
     if(bestEl) bestEl.textContent='🏆 NEW BEST!';
   } else if(bestEl){ bestEl.textContent='BEST: '+GS.highscore.toLocaleString('en-US'); }
-  const rescueEl=document.getElementById('rescueLine'); if(rescueEl) rescueEl.textContent = GS.rescueMoveText || '';
+  // Game-over toont bewust niet meer welke zet nog mogelijk was — geen "oplossing" na de dood.
+  const rescueEl=document.getElementById('rescueLine'); if(rescueEl){ rescueEl.textContent=''; rescueEl.style.display='none'; }
   document.getElementById('over').classList.remove('hidden');
 }
 function updateTitleBest(){ const el=document.getElementById('titleBest'); if(el) el.textContent = GS.highscore>0 ? ('BEST: '+GS.highscore.toLocaleString('en-US')+' COINS') : ''; }
@@ -1233,8 +1240,20 @@ function flyCoins(x,y,total,col){
   }
 }
 
-function showPopup(title,text,col){ GS.popupActive=true; GS.popupTitle=title; GS.popupText=text; GS.popupCol=col||'#fff'; }
-function dismissPopup(){ GS.popupActive=false; }
+// Berichten-wachtrij: elke showPopup() voegt toe aan de rij i.p.v. de vorige te overschrijven.
+// Zo mist een speler nooit een level-up/prestige-melding, ook niet als een puntenexplosie
+// meerdere levels in één keer laat overslaan. Berichten worden oudste-eerst getoond en
+// moeten stuk voor stuk worden weggetikt (zie onDown -> dismissPopup).
+function showPopup(title,text,col){
+  GS.popupQueue.push({title, text, col: col||'#fff'});
+  if(!GS.popupActive) advancePopupQueue();
+}
+function advancePopupQueue(){
+  if(GS.popupQueue.length===0){ GS.popupActive=false; return; }
+  const next=GS.popupQueue.shift();
+  GS.popupActive=true; GS.popupTitle=next.title; GS.popupText=next.text; GS.popupCol=next.col;
+}
+function dismissPopup(){ advancePopupQueue(); }
 
 function evtPos(e){
   const rect=cv.getBoundingClientRect();
@@ -1243,6 +1262,7 @@ function evtPos(e){
 }
 function onDown(e){
   e.preventDefault(); if(GS.state===STATES.TITLE||GS.state===STATES.OVER) return;
+  GS.idleT=0; GS.idleWarned=false;
   const p=evtPos(e);
   if(GS.tut.active){
     if(!TUT_STEPS[GS.tut.step].guide){ tutAdvance(); return; }
@@ -1322,6 +1342,12 @@ function update(realDt){
   if(GS.timeScale < 1.0) { GS.timeScale = Math.min(1.0, GS.timeScale + realDt * 0.4); }
   const dt = realDt * GS.timeScale;
 
+  // Achtergrond versnelt per multiplier-stap (comboChain) en vertraagt weer zodra de keten eindigt.
+  // bgClock (i.p.v. rechtstreeks 'now') zorgt dat de snelheidswissel vloeiend is, geen positie-sprong.
+  const bgTarget = 1 + Math.min(GS.comboChain, 12) * 0.12;
+  GS.bgSpeedMult += (bgTarget - GS.bgSpeedMult) * Math.min(1, realDt * 3);
+  GS.bgClock += realDt * GS.bgSpeedMult;
+
   const cap = GS.shakeSpecial ? SHAKE_MAX_SPECIAL : SHAKE_MAX;
   if(GS.shake>cap) GS.shake=cap; if(GS.shake<=0.05) GS.shakeSpecial=false; 
   if(GS.shake>0){ GS.shake*=Math.exp(-dt*7); if(GS.shake<0.05) GS.shake=0; }
@@ -1332,9 +1358,19 @@ function update(realDt){
 
   if(isZen()){ GS.energy=ENERGY_MAX; GS.deadlockActive=false;
   } else if(GS.state===STATES.IDLE&&!GS.tut.active){
-    const minCost = Math.round(cumulativeSlideCost(1));
-    const canSlide = Math.round(GS.energy) >= minCost && maxPaidDistance(Math.round(GS.energy)) >= 0.5;
-    if(!canSlide) handleDeadlock();
+    if(GS.popupActive){
+      GS.idleT=0; // niet laten aftikken terwijl de speler berichten wegklikt
+    } else {
+      GS.idleT+=dt;
+      if(GS.idleT>=CONFIG.IDLE.WARN_SECONDS){
+        if(!GS.idleWarned){ GS.idleWarned=true; toast('⏳ Reactor idling — energy draining!'); }
+        GS.energy=clamp(GS.energy-CONFIG.IDLE.DRAIN_PER_SEC*dt,0,ENERGY_MAX);
+        GS.energyFlash=Math.max(GS.energyFlash,.15);
+      }
+      const minCost = Math.round(cumulativeSlideCost(1));
+      const canSlide = Math.round(GS.energy) >= minCost && maxPaidDistance(Math.round(GS.energy)) >= 0.5;
+      if(!canSlide) handleDeadlock();
+    }
   } else if(GS.state===STATES.LAST_CHANCE){
     GS.deadlockT-=dt; if(GS.deadlockT<=0){ GS.deadlockActive=false; startMeltdown(); }
   } else if(GS.deadlockActive) GS.deadlockActive=false;
@@ -1429,8 +1465,8 @@ function render(now){
   {
     const lvlNow=currentLevel(); ctx.fillStyle='#030510'; ctx.fillRect(0,0,CW,CH); ctx.save();
     let layer1Spd = 10 + lvlNow*3; let layer2Spd = 20 + lvlNow*5;
-    let ox = (now/1000*layer1Spd) % CW; let oy = (now/1000*layer1Spd*0.5) % CH;
-    let ox2 = (now/1000*layer2Spd) % CW; let oy2 = (now/1000*layer2Spd*0.4) % CH;
+    let ox = (GS.bgClock*layer1Spd) % CW; let oy = (GS.bgClock*layer1Spd*0.5) % CH;
+    let ox2 = (GS.bgClock*layer2Spd) % CW; let oy2 = (GS.bgClock*layer2Spd*0.4) % CH;
     for(let l=0; l<2; l++) {
       let lOx = l===0 ? ox : ox2; let lOy = l===0 ? oy : oy2; let count = l===0 ? 60 : 30; ctx.globalAlpha = l===0 ? 0.25 : 0.45;
       for(let tx=-1; tx<=1; tx++){ for(let ty=-1; ty<=1; ty++){
@@ -1643,6 +1679,10 @@ function render(now){
     for(const w of words2){ const test2=line2?line2+' '+w:w; if(ctx.measureText(test2).width>pw-40){ ctx.fillText(line2,CW/2,ty2); line2=w; ty2+=30; } else line2=test2; }
     if(line2) ctx.fillText(line2,CW/2,ty2);
     ctx.fillStyle=`rgba(186,255,94,${.5+.5*Math.sin(pulse*3)})`; ctx.font='bold 18px -apple-system,Arial'; ctx.fillText('TAP TO CONTINUE',CW/2,py2+ph-20);
+    if(GS.popupQueue.length>0){
+      ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='13px -apple-system,Arial';
+      ctx.fillText('+'+GS.popupQueue.length+' more message'+(GS.popupQueue.length>1?'s':''),CW/2,py2+ph-42);
+    }
   }
 
   if(GS.tut.active){
