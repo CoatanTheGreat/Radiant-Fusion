@@ -124,7 +124,7 @@
 <script>
 'use strict';
 (function(){
-/* ================= RADIANT FUSION V2.1.1 ================= */
+/* ================= RADIANT FUSION V2.2.0 — BALANCE PASS ================= */
 
 /* ---------------------------------------------------------------------
  * CONFIG — alle tunbare getallen op één plek. Wijzig hier, niet verspreid
@@ -138,12 +138,12 @@ const CONFIG = {
     COLORS: ['#ff3358','#2fb8ff','#5dff3a','#ffd21f','#9d00ff','#ff22a1'],
     DARK:   ['#33060e','#04202e','#0c2606','#2b2303','#1a0033','#33001a'],
     BASE_WEIGHTS: [120, 120, 80, 80, 45, 45],
-    VALUES:       [10, 10, 25, 25, 60, 60],
+    VALUES:       [10, 10, 25, 25, 80, 60],  // v2.2: Void 60→80 (betere risk/reward bij lagere energiekost)
   },
   ENERGY: {
     MAX: 30,
-    ELECTRIC_TILE_GAIN: 0.6,          // primaire energiebron: Electric-tegels in een match
-    VOID_TILE_COST: 1.0,              // Void-tegels leveren veel punten op, maar kosten energie
+    ELECTRIC_TILE_GAIN: 0.35,         // primaire energiebron: Electric-tegels in een match (v2.2: gehalveerd t.o.v. 0.6)
+    VOID_TILE_COST: 0.6,              // Void-tegels: hoge punten, matige energiekost (v2.2: verlaagd van 1.0)
   },
   SLIDE_COST: {
     GROWTH_BASE: 1.8,       // startwaarde, ongewijzigd voor beginnende spelers
@@ -162,7 +162,7 @@ const CONFIG = {
     MAX_REACTIONS_PER_TURN: 1,
     CORE_COMBO: 7,
     MAX_FUSES_PER_CHAIN: 1,
-    JACKPOT_CASCADE: 13,             // multiplier ×4096+
+    JACKPOT_CASCADE: 13,             // chain 13+ triggert jackpot (v2.2: soft-capped multiplier ~×337)
   },
   DEADLOCK: { SECONDS: 5, LAST_CHANCE_MAX_SHIFT: 1 },
   DROPS: { LUCKY_CHANCE: 0.02 },
@@ -180,7 +180,7 @@ const CONFIG = {
   },
   // -- Pity timer (Core-modus): voorkomt een oneerlijke RNG-doodsspiraal --
   PITY: {
-    ENERGY_FRACTION_THRESHOLD: 0.20, // onder 20% energie treedt de pity timer in werking
+    ENERGY_FRACTION_THRESHOLD: 0.12, // onder 12% energie treedt de pity timer in werking (v2.2: was 20%)
     GUARANTEED_ELECTRIC_TILES: 2,    // aantal gegarandeerde ⚡-tegels bij de eerstvolgende drop
   },
 };
@@ -375,8 +375,7 @@ const GS = {
   lastChanceActive: false,
   rescueMove: null,
   rescueMoveText: '',
-  // -- Popups & tutorial
-  popupQueue: [],
+  // -- Popups & tutorial --
   popupActive: false,
   popupTitle: '',
   popupText: '',
@@ -603,20 +602,27 @@ const sfx={
 };
 
 
-function cascadeMultiplier(chain){ return Math.pow(2, Math.max(0,chain-1)); }
+// v2.2 BALANCE: soft-cap cascade multiplier — vol ×2 tot chain 6, daarna ×1.4 per stap.
+// Voorkomt dat één gelukscascade 50 gewone beurten overschaduwt.
+// chain 1=×1, 3=×4, 6=×32, 7=×45, 10=×123, 13=×337
+function cascadeMultiplier(chain){
+  const n=Math.max(0,chain-1);
+  if(n<=5) return Math.pow(2,n);
+  return Math.pow(2,5)*Math.pow(1.4,n-5);
+}
 
 
 
 
 const RECIPES=[
- {id:1, n:'Steam',          d:'Fire + Ice — clears a 3×3 area & RESTORES ENERGY ⚡'},
+ {id:1, n:'Steam',          d:'Fire + Ice — clears a 3×3 area & restores +4 ⚡ energy'},
  {id:2, n:'Colour Wipe',    d:'Electric + Poison — destroys every tile of one colour.'},
  {id:3, n:'Plasma Nova',    d:'Fire + Electric — massive fiery explosion (radius 3).'},
  {id:6, n:'Electric Strike',d:'Ice + Electric — shoots 8 lightning bolts.'},
- {id:5, n:'Acid Burn',      d:'Fire + Poison — acid pool dissolves tiles.'},
+ {id:5, n:'Acid Burn',      d:'Fire + Poison — 3×3 acid pool dissolves tiles over 3 turns.'},
  {id:8, n:'Blizzard',       d:'One huge Ice match (6+) — turns 8 random tiles golden (5× coins).'},
  {id:17,n:'Supernova',      d:'Mega/Core combo — black hole sucks tiles to the vault.'},
- {id:14,n:'The Big Bang',   d:'4+ different big matches in one chain — wipes the board (also grants Hyperdrive if your combo is ×512–×2048).'}
+ {id:14,n:'The Big Bang',   d:'4+ different big matches in one chain — wipes the board (also grants Hyperdrive at chain 10–12).'}
 ];
 const DUO={'0,1':1,'2,3':2,'0,3':3,'1,3':6,'0,2':5};
 const PURE=[null,8,null,null,null,null];
@@ -699,7 +705,6 @@ function reset(){
   GS.lastAnnouncedLevel=1; GS.deadlockActive=false; GS.deadlockT=0; GS.popupActive=false;
   GS.lastChanceActive=false; GS.rescueMove=null; GS.rescueMoveText='';
   GS.snapAnim=null; GS.drag.on=false; GS.tut.active=false;
-  GS.popupQueue=[]; // <-- NIEUW
   GS.lastReshuffleLevel=0;
   initBoard(); GS.state=STATES.IDLE;
 }
@@ -853,66 +858,6 @@ function fxLightningBolt(x1, y1, x2, y2) {
     burst(x2, y2, '#ffd21f', 6);
 }
 
-function fxChainLightning(startX, startY, jumps, rm) {
-  let cx = startX;
-  let cy = startY;
-
-  for (let j = 0; j < jumps; j++) {
-    // 1. Zoek alle geldige, nog niet vernietigde tegels op het bord
-    const cands = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (GS.board[r][c] && !rm.has(key(c, r))) {
-          cands.push({ c, r });
-        }
-      }
-    }
-    // Als het bord (bijna) leeg is, stop dan met springen
-    if (cands.length === 0) break;
-
-    // 2. Kies een willekeurige landingsplek
-    const target = cands[rnd(cands.length)];
-    const tx = cX(target.c) + T / 2;
-    const ty = cY(target.r) + T / 2;
-
-    // Teken de hoofd-bliksemflits ernaartoe en markeer voor vernietiging
-    fxLightningBolt(cx, cy, tx, ty);
-    rm.add(key(target.c, target.r));
-    burst(tx, ty, '#ffd21f', 15);
-
-    // 3. Bepaal 3 tot 8 vakjes rondom de landing
-    const clearCount = 3 + rnd(6); 
-    const neighbors = [];
-    
-    // Scan in een straal van 2 vakjes rondom de impact
-    for (let dr = -2; dr <= 2; dr++) {
-      for (let dc = -2; dc <= 2; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        let nc = target.c + dc, nr = target.r + dr;
-        if (inGrid(nc, nr) && GS.board[nr][nc] && !rm.has(key(nc, nr))) {
-          neighbors.push({ c: nc, r: nr, dist: Math.hypot(dc, dr) });
-        }
-      }
-    }
-    
-    // Sorteer op afstand, zodat we vanuit de kern naar buiten wegschieten
-    neighbors.sort((a, b) => a.dist - b.dist);
-
-    // Schiet bliksem naar de dichtstbijzijnde buren en markeer ze
-    for (let i = 0; i < clearCount && i < neighbors.length; i++) {
-      let n = neighbors[i];
-      rm.add(key(n.c, n.r));
-      fxLightningBolt(tx, ty, cX(n.c) + T / 2, cY(n.r) + T / 2); // kleine vertakkingen
-    }
-
-    // Het eindpunt wordt het startpunt voor de eventuele volgende sprong
-    cx = tx;
-    cy = ty;
-  }
-  
-  GS.shake = Math.min(GS.shake + 12, 20); // Extra impact trilling
-}
- 
 function triggerRecipe(id,pt,rm,extra){
   if(id==null||!RECIPES.some(r=>r.id===id)) return false;
   if(GS.chainRecipes.has(id)) return false; 
@@ -924,8 +869,8 @@ function triggerRecipe(id,pt,rm,extra){
   switch(id){
     case 1: 
       collectArea(rm,pt.c,pt.r,1); fxCloud(px,py,'#ffffff'); 
-      GS.energy = Math.min(ENERGY_MAX, GS.energy + 8);
-      addText(px, py-20, '⚡ +ENERGY!', '#7df9ff');
+      GS.energy = Math.min(ENERGY_MAX, GS.energy + 4); // v2.2: was +8
+      addText(px, py-20, '⚡ +4 ENERGY', '#7df9ff');
       break;
     case 2:{ 
       let col=extra;
@@ -944,14 +889,22 @@ function triggerRecipe(id,pt,rm,extra){
       fxRing(px,py,'#ff2d78',T*3.2); boom(1.8); GS.shake=20; GS.timeScale=0.08; 
       GS.shakeSpecial = true;
       break;
-    case 5: 
-      for(let r=pt.r;r<=pt.r+1;r++)for(let c=pt.c;c<=pt.c+1;c++)
-        if(inGrid(c,r)&&(Object.keys(GS.acid).length<8||GS.acid[key(c,r)])) GS.acid[key(c,r)]=3;
+    case 5: // v2.2: 3×3 acid pool i.p.v. 2×2, cap 8→12
+      for(let r=pt.r-1;r<=pt.r+1;r++)for(let c=pt.c-1;c<=pt.c+1;c++)
+        if(inGrid(c,r)&&(Object.keys(GS.acid).length<12||GS.acid[key(c,r)])) GS.acid[key(c,r)]=3;
       fxCloud(px,py,'#5dff3a'); break;
-    case 6:
-      fxChainLightning(px, py, 3, rm); // 3 sprongen (chain lightning)
-      sfx.laser(); 
-      GS.timeScale=0.3;
+    case 6: 
+      {
+         const cands=[];
+         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
+         for(let i=0; i<8 && cands.length; i++) {
+             const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
+             fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
+             rm.add(key(tc, tr));
+         }
+         sfx.laser(); 
+         GS.shake=10; GS.timeScale=0.3;
+      }
       break;
     case 8: { 
       const cand8=[];
@@ -1228,19 +1181,27 @@ function processRemovals() {
           case I: 
             for(let c2=0;c2<COLS;c2++) if(GS.board[m.r][c2]) rm.add(key(c2,m.r));
             fxLaser(GX,py,GX+GW,py,'#2fb8ff'); sfx.laser(); addText(px,py-30,'⬟ MEGA ICE','#2fb8ff'); break;
-          case G: 
+          case G: // v2.2: vernietig 5 + vergiftig 5 (was: alleen 5 converteren)
             { const cand=[];
               for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
                 if(GS.board[r][c]&&!GS.board[r][c].mega&&!GS.board[r][c].core&&!rm.has(key(c,r))) cand.push([c,r]);
-              for(let i=0;i<5&&cand.length;i++){ const [c,r]=cand.splice(rnd(cand.length),1)[0];
-                GS.board[r][c].t=G; burst(cX(c)+T/2,cY(r)+T/2,'#5dff3a',6); }
+              for(let i=0;i<5&&cand.length;i++){ const [tc,tr]=cand.splice(rnd(cand.length),1)[0];
+                rm.add(key(tc,tr)); burst(cX(tc)+T/2,cY(tr)+T/2,'#5dff3a',12); }
+              for(let i=0;i<5&&cand.length;i++){ const [tc,tr]=cand.splice(rnd(cand.length),1)[0];
+                GS.board[tr][tc].t=G; burst(cX(tc)+T/2,cY(tr)+T/2,'#5dff3a',6); }
             }
             addText(px,py-30,'⬟ MEGA POISON','#5dff3a'); break;
-          case E:
-             fxChainLightning(px, py, 1, rm); // 1 sprong
-             sfx.laser(); 
-             addText(px,py-30,'⬟ MEGA ELECTRIC','#ffd21f'); 
-             break;
+          case E: 
+             {
+               const cands=[];
+               for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) cands.push([c,r]);
+               for(let i=0; i<8 && cands.length; i++) {
+                   const [tc, tr] = cands.splice(rnd(cands.length), 1)[0];
+                   fxLightningBolt(px, py, cX(tc)+T/2, cY(tr)+T/2);
+                   rm.add(key(tc, tr));
+               }
+             }
+            sfx.laser(); addText(px,py-30,'⬟ MEGA ELECTRIC','#ffd21f'); break;
           case V:
             collectRadius(rm,m.c,m.r,2); boom(1.2); fxRing(px,py,'#9d00ff',T*2.5);
             addText(px,py-30,'⬟ MEGA VOID','#9d00ff'); break;
@@ -1278,6 +1239,14 @@ function processRemovals() {
     }
     if(GS.comboChain>=10&&!GS.hyper&&!GS.hyperThisChain&&!GS.hyperPending) GS.hyperPending=true; // wordt pas echt gestart in endResolve, na vault-payout en popups
 
+    // v2.2 Match-size bonus: grotere matches belonen positioneringsvaardigheid.
+    // Tiles uit groepen van >3 krijgen een bonus; tiles vernietigd door recepten/megas
+    // (niet in een groep) krijgen de default ×1.
+    const sizeBonus = {};
+    for(const g of groups){
+      const bonus = 1 + 0.15 * Math.max(0, g.cells.length - 3);
+      for(const [c,r] of g.cells) sizeBonus[key(c,r)] = bonus;
+    }
     let removedN=0, goldN=0, electricN=0, voidN=0;
     let coinSrcX=0, coinSrcY=0, coinSrcN=0; 
     let earned = 0;
@@ -1292,7 +1261,7 @@ function processRemovals() {
       const bx=cX(c)+T/2, by=cY(r)+T/2;
       coinSrcX+=bx; coinSrcY+=by; coinSrcN++;
       
-      earned += (ELEM_VAL[cell.t] * (cell.gold? 5 : 1)) * mult;
+      earned += (ELEM_VAL[cell.t] * (cell.gold? 5 : 1)) * mult * (sizeBonus[k] || 1);
 
       if(cell.mega){
         burst(bx,by,ECOL[cell.t],28); fxRing(bx,by,ECOL[cell.t],T*0.8);
@@ -1476,14 +1445,13 @@ function endResolve(){
     // iets zijn aangevuld via de emergency-grant hieronder of via Electric-tegels in de match).
   }
   if(GS.turnBestCombo>0&&GS.energy<ENERGY_MAX){
-    const eGain = (GS.turnBestCombo >= 3 ? Math.min(GS.turnBestCombo - 2, 3) : 0) + (GS.turnRemovedTotal>=15 ? 2 : 0);
+    const eGain = (GS.turnBestCombo >= 4 ? Math.min(GS.turnBestCombo - 3, 2) : 0) + (GS.turnRemovedTotal>=15 ? 2 : 0); // v2.2: drempel ≥4 (was ≥3), cap 2 (was 3)
     if(eGain > 0){
       GS.energy=clamp(GS.energy+eGain,0,ENERGY_MAX);
       addText(GX+GW/2,GY+GH-20,'+'+Math.round(eGain)+' ⚡','#7df9ff');
     }
   }
   const pendingHyper = GS.hyperPending;
-  const hyperCombo = GS.comboChain;
   GS.turnRemovedTotal=0; GS.turnBestCombo=0;
   GS.comboChain=0; GS.coreSpawned=false; GS.chainElems.clear();
   GS.hyperPending=false;
@@ -1491,7 +1459,7 @@ function endResolve(){
   // Uitgestelde Hyperdrive: pas NA vault-payout, levelcheck en popup-tonen.
   // De timer zelf pauzeert ook al bij popupActive (eerder gefixt), dus als checkLevelUp()
   // een level-up popup heeft geopend, loopt de klok pas als de speler die wegtikt.
-  if(pendingHyper) startHyper(hyperCombo);
+  if(pendingHyper) startHyper();
   GS.state=STATES.IDLE;
 }
 function startResolve(isSlide){
@@ -1502,8 +1470,8 @@ function startResolve(isSlide){
   if(isSlide) applyTurnStatuses();
   GS.state=STATES.RESOLVE; GS.stepDelay=.25;
 }
-function startHyper(comboAmount){
-  if(comboAmount<10||comboAmount>=JACKPOT_CASCADE) return; // alleen binnen ×512–×2048 — geldt voor ALLE trigger-paden (ook The Big Bang-recept)
+function startHyper(){
+  if(GS.comboChain<10||GS.comboChain>=JACKPOT_CASCADE) return; // alleen binnen ×512–×2048 — geldt voor ALLE trigger-paden (ook The Big Bang-recept)
   GS.hyper=true; GS.hyperT=16; GS.hyperThisChain=true; // duur verdubbeld (was 8s)
   toast('🚀 HYPERDRIVE!'); boom(1.5); GS.shake=14; GS.shakeSpecial=true; GS.timeScale = 0.25;
 }
@@ -1542,9 +1510,9 @@ function reshuffleBoard(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     if(GS.board[r][c]) GS.board[r][c].fall=(ROWS-r)*T+250;
   }
-  GS.energy=ENERGY_MAX; GS.energyAccum=0; GS.energyFlash=.3;
+  GS.energy=Math.round(ENERGY_MAX*0.6); GS.energyAccum=0; GS.energyFlash=.3; // v2.2: 60% energie i.p.v. 100%
   boom(1.0); GS.shake=10;
-  toast("🔄 NO MOVES LEFT — Board reshuffled, energy restored! (this level's only reshuffle)");
+  toast("🔄 NO MOVES LEFT — Board reshuffled, 60% energy restored! (this level's only reshuffle)");
   GS.state=STATES.FALL;
 }
 function showGameOver(){
@@ -1635,29 +1603,8 @@ function flyCoins(x,y,total,col){
   }
 }
 
-function showPopup(title, text, col){ 
-  // Zet de nieuwe pop-up achteraan de wachtrij
-  GS.popupQueue.push({ title, text, col: col || '#fff' }); 
-  
-  // Als er momenteel geen pop-up in beeld is, laat deze dan direct zien
-  if(!GS.popupActive) displayNextPopup(); 
-}
-
-function displayNextPopup() {
-  if(GS.popupQueue.length > 0) {
-    const p = GS.popupQueue.shift(); // Haal de eerste uit de wachtrij
-    GS.popupActive = true;
-    GS.popupTitle = p.title;
-    GS.popupText = p.text;
-    GS.popupCol = p.col;
-  } else {
-    GS.popupActive = false; // Geen pop-ups meer over
-  }
-}
-
-function dismissPopup(){ 
-  displayNextPopup(); // In plaats van direct sluiten, kijken we of er nog een volgende is
-}
+function showPopup(title,text,col){ GS.popupActive=true; GS.popupTitle=title; GS.popupText=text; GS.popupCol=col||'#fff'; }
+function dismissPopup(){ GS.popupActive=false; }
 
 function evtPos(e){
   const rect=cv.getBoundingClientRect();
