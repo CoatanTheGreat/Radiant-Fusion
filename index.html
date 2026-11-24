@@ -169,7 +169,7 @@ const CONFIG = {
     NAMES: ['Fire','Ice','Poison','Electric','Void','Crystal', 'Star', 'Water', 'Virus', 'Husk', 'Black Hole', 'Reactor Core'],
     COLORS: ['#ff5a36','#6fe0ff','#5dff3a','#ffd21f','#9d00ff','#ff22a1', '#ffffff', '#3b5bff', '#c6ff3d', '#7b8494', '#b48cff', '#ff8a00'],
     DARK:   ['#330c06','#04232e','#0c2606','#2b2303','#1a0033','#33001a', '#111111', '#080f38', '#0d1200', '#101216', '#000000', '#2a1200'],
-    BASE_WEIGHTS: [120, 120, 80, 80, 45, 45, 0, 0, 0, 0, 0, 0],
+    BASE_WEIGHTS: [100, 100, 90, 90, 75, 60, 0, 0, 0, 0, 0, 0],
     VALUES:       [10, 10, 25, 25, 80, 60, 0, 8, 5, 3, 0, 0],
   },
   ENERGY: {
@@ -185,7 +185,7 @@ const CONFIG = {
   HAZARDS: { MAX_HOLES: 1 },
   HYPERDRIVE: { BOMB_CHANCE: 0.45, MAX_BOOMS_PER_TURN: 3, DURATION: 5 }, // was 16 — nu ook echt de bron van GS.hyperT
   LEVELS: {
-    THRESHOLDS: [15000, 65000, 185000, 450000, 950000, 2100000, 4800000, 11000000, 25000000],
+    THRESHOLDS: [10000, 45000, 150000, 450000, 950000, 2100000, 4800000, 11000000, 25000000],
     SLIDE_COST_LEVEL_CAP: 12,        
     PRESTIGE_MULT: 2.3,              
   },
@@ -253,13 +253,11 @@ const VOID_ENERGY_COST=CONFIG.ENERGY.VOID_TILE_COST;
 const SLIDE_COST_GROWTH_BASE=CONFIG.SLIDE_COST.GROWTH_BASE;
 const SLIDE_COST_GROWTH_PER_LEVEL=CONFIG.SLIDE_COST.GROWTH_PER_LEVEL;
 function marginalSlideCost(dist){ return 1 + slideCostGrowth()*dist; }
-function cumulativeSlideCost(d){ const g=slideCostGrowth(); d=Math.abs(d); return d + g*d*d/2; }
-function maxPaidDistance(s){
-  const g=slideCostGrowth();
-  s=Math.max(0,s);
-  if(g<=0) return s;
-  return (-1+Math.sqrt(1+2*g*s))/g;
-}
+// Schuifkosten in hele getallen: 1 vakje kost altijd 1 ⚡, elk extra vakje wordt duurder (groeit per level).
+// De sleeplimiet en de echte prijs gebruiken exact dezelfde formule, zodat een zet nooit 'stil' geweigerd wordt.
+function cumulativeSlideCost(d){ d=Math.round(Math.abs(d)); if(d<=0) return 0; const g=slideCostGrowth()*0.5; return Math.max(1, Math.round(d + g*(d*d-d)/2)); }
+function slideCost(d){ const base=cumulativeSlideCost(d); if(base<=0) return 0; const m=hasRelic('glass')?1.5:(hasRelic('quantum')?0.6:1); return Math.max(1,Math.round(base*m)); }
+function maxPaidDistance(s){ s=Math.round(Math.max(0,s)); let d=0; while(d<Math.max(COLS,ROWS) && slideCost(d+1)<=s) d++; return d; }
 const SHAKE_MAX=CONFIG.SHAKE.MAX;
 const SHAKE_MAX_SPECIAL=CONFIG.SHAKE.MAX_SPECIAL;
 const MAX_HOLES=CONFIG.HAZARDS.MAX_HOLES;
@@ -274,7 +272,7 @@ const STATES = Object.freeze({
   TITLE: 'title', IDLE: 'idle', DRAG: 'drag', SNAP: 'snap', RESOLVE: 'resolve',
   MATCH_FLASH: 'match_flash', COIN_FLIGHT: 'coin_flight', FALL: 'fall',
   VAULT_PAYOUT: 'vault_payout', JACKPOT: 'jackpot', MELT: 'melt', OVER: 'over',
-  LAST_CHANCE: 'last_chance', RELIC_SELECT: 'relic_select',
+  LAST_CHANCE: 'last_chance', RELIC_SELECT: 'relic_select', FUSE: 'fuse',
 });
 
 const GAME_MODES = { ZEN: CONFIG.MODE.ZEN.id, CORE: CONFIG.MODE.CORE.id };
@@ -797,17 +795,14 @@ function hintOnce(id,msg){
   if(GS.hintsSeen.has(id)) return; GS.hintsSeen.add(id); store.set('rf_hints',JSON.stringify([...GS.hintsSeen])); hintToast(msg);
 }
 let hintToastT=null, toastT=null;
-function hintToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; clearTimeout(toastT); clearTimeout(hintToastT); hintToastT=setTimeout(()=>el.style.opacity=0,3400); }
+function hintToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; clearTimeout(toastT); clearTimeout(hintToastT); hintToastT=setTimeout(()=>el.style.opacity=0,6800); }
 function unlock(id){
   if(GS.unlocked.has(id)) return; GS.unlocked.add(id); store.set('rf_recipes',JSON.stringify([...GS.unlocked]));
   const rc=RECIPES.find(r=>r.id===id); toast('⚗ New reaction: '+rc.n); sfx.unlock();
 }
-function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0,2200); }
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0,4400); }
 
 function getActiveElementCount(){
-    const lvl = currentLevel();
-    if(lvl <= 2) return 4;
-    if(lvl <= 4) return 5;
     return 6;
 }
 
@@ -1005,7 +1000,7 @@ function findGroups(){
 }
 function fuse2x2(){
   let fused=false;
-  if(GS.fusesThisChain>=MAX_FUSES_PER_CHAIN) return false; 
+  if(GS.fusesThisChain>=MAX_FUSES_PER_CHAIN||GS.comboChain>0||!GS.currentTurnIsSlide) return false; 
   for(let r=0;r<ROWS-1;r++)for(let c=0;c<COLS-1;c++){
     const a=GS.board[r][c],b=GS.board[r][c+1],d=GS.board[r+1][c],e2=GS.board[r+1][c+1];
     if(a&&b&&d&&e2&&!a.mega&&!b.mega&&!d.mega&&!e2.mega&&
@@ -1321,7 +1316,7 @@ function anyFalling(){
 
 // Match van 4+ (of L/T-vorm) laat een Geladen tegel achter; een rechte lijn van 5+ maakt een Star (vanaf level 3).
 function planCreations(groups){
-  const out=[]; const sl=GS.lastSlideLine;
+  const out=[]; const sl=GS.lastSlideLine; if(GS.comboChain>1||!GS.currentTurnIsSlide) return out;
   for(const g of groups){
     if(g.cells.length<4||g.t===S) continue;
     const set=new Set(g.cells.map(([c,r])=>key(c,r))); let maxRun=0;
@@ -1693,12 +1688,12 @@ const FUSIONS=[
 ];
 const FUSION_PAIR={'0,1':'steam','0,3':'plasma','1,3':'chain','0,2':'napalm','1,2':'frost','2,3':'wipe'};
 let fusionsFound=new Set(JSON.parse(store.get('rf_fusions')||'[]'));
-function isSpecial(cl){ return cl && (cl.mega || (cl.t===S && !cl.dormant)); }
-function findFusionPair(){
+function isSpecial(cl,anyStar){ return cl && (cl.mega || (cl.t===S && (anyStar||!cl.dormant))); }
+function findFusionPair(anyStar){
   const sl=GS.lastSlideLine; if(!sl) return null; const cells=[];
   if(sl.axis==='row'){ for(let c=0;c<COLS;c++) cells.push([c,sl.idx]); } else { for(let r=0;r<ROWS;r++) cells.push([sl.idx,r]); }
-  for(const [c,r] of cells){ const a=GS.board[r][c]; if(!isSpecial(a)) continue;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; if(isSpecial(GS.board[nr][nc])) return {a:[c,r],b:[nc,nr]}; } }
+  for(const [c,r] of cells){ const a=GS.board[r][c]; if(!isSpecial(a,anyStar)) continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; if(isSpecial(GS.board[nr][nc],anyStar)) return {a:[c,r],b:[nc,nr]}; } }
   return null;
 }
 function fusionType(A,B){
@@ -1713,9 +1708,25 @@ function fusionType(A,B){
   return FUSION_PAIR[Math.min(ta,tb)+','+Math.max(ta,tb)]||'overload';
 }
 function lineCells(rm,c0,r0,dc,dr){ let c=c0,r=r0; while(inGrid(c,r)){ if(GS.board[r][c]) rm.add(key(c,r)); c+=dc; r+=dr; } }
-function checkFusion(){
+function updateFusePreview(){
+  const d=GS.drag; d.fusePreview=null;
+  if(!featureOn('fusion')||!d.axis||!d.ghostShift||GS.tut.active) return;
+  const orig=GS.board; GS.board=orig.map(row=>row.slice());
+  if(d.axis==='row') rotateRow(d.idx,d.ghostShift); else rotateCol(d.idx,d.ghostShift);
+  const save=GS.lastSlideLine; GS.lastSlideLine={axis:d.axis,idx:d.idx}; const pr=findFusionPair(true); GS.lastSlideLine=save;
+  if(pr){ const A=GS.board[pr.a[1]][pr.a[0]], B=GS.board[pr.b[1]][pr.b[0]]; const F_=FUSIONS.find(f=>f.id===fusionType(A,B)); d.fusePreview={a:pr.a,b:pr.b,name:F_.n,col:F_.col}; }
+  GS.board=orig;
+}
+const FUSE_DUR=0.5;
+function startFuse(){
+  if(!featureOn('fusion')) return false; const pr=findFusionPair(); if(!pr) return false;
+  const A=GS.board[pr.a[1]][pr.a[0]], B=GS.board[pr.b[1]][pr.b[0]]; const F_=FUSIONS.find(f=>f.id===fusionType(A,B));
+  GS.fuseAnim={a:pr.a,b:pr.b,A,B,t:0,col:F_.col,name:F_.n}; GS.state=STATES.FUSE; tone(200,1400,FUSE_DUR,'sawtooth',.1); tone(260,1800,FUSE_DUR,'triangle',.08);
+  return true;
+}
+function checkFusion(pr){
   if(!featureOn('fusion')) return false;
-  const pr=findFusionPair(); if(!pr) return false;
+  pr=pr||findFusionPair(); if(!pr) return false;
   const [ac,ar]=pr.a, [bc,br]=pr.b; const A=GS.board[ar][ac], B=GS.board[br][bc];
   const type=fusionType(A,B); const F_=FUSIONS.find(f=>f.id===type);
   const mx=(cX(ac)+cX(bc))/2+T/2, my=(cY(ar)+cY(br))/2+T/2; const mc=Math.round((ac+bc)/2), mr=Math.round((ar+br)/2);
@@ -1823,7 +1834,7 @@ function startResolve(isSlide){
       for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) {
           if (GS.board[r][c] && GS.board[r][c].t === 6) GS.board[r][c].dormant = false;
       }
-      if(checkFusion()){ gravity(); GS.state=STATES.FALL; return; }
+      if(startFuse()) return;
   }
   GS.state=STATES.RESOLVE; GS.stepDelay=.25;
 }
@@ -1953,7 +1964,7 @@ function flyCoins(x,y,total,col){
 // Zo mist een speler nooit een level-up/prestige-melding, ook niet als een puntenexplosie
 // meerdere levels in één keer laat overslaan. Berichten worden oudste-eerst getoond en
 // moeten stuk voor stuk worden weggetikt (zie onDown -> dismissPopup).
-const POPUP_DUR=3.4;
+const POPUP_DUR=6;
 function showPopup(title,text,col){
   GS.popupQueue.push({title, text, col: col||'#fff'});
   if(!GS.popupActive) advancePopupQueue();
@@ -2001,11 +2012,12 @@ function onMove(e){
     const maxMag=GS.rescueMove?Math.max(1,Math.abs(GS.rescueMove.shift)):CONFIG.DEADLOCK.LAST_CHANCE_MAX_SHIFT;
     if(Math.abs(visOff)>maxMag){ visOff=Math.sign(visOff)*maxMag; if(!GS.drag.hitLimit){ GS.drag.hitLimit=true; sfx.limit(); GS.limitFlash=.3; } }
   } else if(!GS.tut.active&&!freeEnergyMode()){
-    const affordable=maxPaidDistance(Math.round(GS.energy));
-    if(Math.abs(visOff)>affordable){ visOff=Math.sign(visOff)*affordable; if(!GS.drag.hitLimit){ GS.drag.hitLimit=true; sfx.limit(); GS.limitFlash=.3; } GS.energyFlash=.2; }
+    const affordable=maxPaidDistance(GS.energy); const lim=affordable>0?affordable+0.45:0.3;
+    if(Math.abs(visOff)>lim){ visOff=Math.sign(visOff)*lim; if(!GS.drag.hitLimit){ GS.drag.hitLimit=true; sfx.limit(); GS.limitFlash=.3; } GS.energyFlash=.2; }
   }
   GS.drag.off=visOff*T; GS.drag.ghostShift=Math.round(visOff);
-  GS.drag.ghostCost=(GS.tut.active||freeEnergyMode()||GS.lastChanceActive)?0:Math.round(cumulativeSlideCost(Math.abs(GS.drag.ghostShift)));
+  GS.drag.ghostCost=(GS.tut.active||freeEnergyMode()||GS.lastChanceActive)?0:slideCost(GS.drag.ghostShift);
+  updateFusePreview();
   GS.drag.moved=true;
 }
 function onUp(e){
@@ -2026,7 +2038,7 @@ function onUp(e){
     shift=clamp(shift,-maxMag,maxMag);
     if(shift===0){ GS.state=fallbackState; GS.drag.on=false; return; }
   } else if(!GS.tut.active&&!freeEnergyMode()&&shift!==0){
-    const cost=Math.round(cumulativeSlideCost(Math.abs(shift))*(hasRelic('glass')?1.5:hasRelic('quantum')?0.6:1));
+    const cost=slideCost(shift);
     if(cost > Math.round(GS.energy)) {
       shift = 0; sfx.limit(); GS.limitFlash = 0.3;
     } else {
@@ -2084,8 +2096,7 @@ function update(realDt){
   } else if(GS.state===STATES.IDLE&&!GS.tut.active){
     if(GS.pendingRelicOffer&&!GS.popupActive&&GS.popupQueue.length===0){ GS.pendingRelicOffer=false; offerRelics(); return; }
     {
-      const minCost = Math.round(cumulativeSlideCost(1));
-      const canSlide = Math.round(GS.energy) >= minCost && maxPaidDistance(Math.round(GS.energy)) >= 0.5;
+      const canSlide = Math.round(GS.energy) >= slideCost(1);
       if(!canSlide) handleDeadlock();
     }
   } else if(GS.state===STATES.LAST_CHANCE){
@@ -2143,6 +2154,8 @@ function update(realDt){
     if(GS.vaultCoins > transfer) { GS.vaultCoins = Math.round(GS.vaultCoins - transfer); GS.score += transfer;
     } else { GS.score += Math.round(GS.vaultCoins); GS.vaultCoins = 0; endResolve(); }
   }
+  else if(GS.state===STATES.FUSE){ const fa=GS.fuseAnim; fa.t+=dt;
+    if(fa.t>=FUSE_DUR){ GS.fuseAnim=null; if(checkFusion({a:fa.a,b:fa.b})){ gravity(); GS.state=STATES.FALL; } else { GS.state=STATES.RESOLVE; GS.stepDelay=.1; } } }
   else if(GS.state===STATES.JACKPOT){ updateJackpot(dt); }
   else if(GS.state===STATES.MELT){ GS.meltT+=dt; GS.shake=18; GS.shakeSpecial=true; if(GS.meltT>1.6) showGameOver(); }
 }
@@ -2360,6 +2373,7 @@ function render(now){
   ctx.save(); ctx.beginPath(); ctx.rect(GX,GY,GW,GH); ctx.clip();
   for(let r=0;r<ROWS;r++){ if(!GS.board[r]) continue; for(let c=0;c<COLS;c++){
     const cell=GS.board[r][c]; if(!cell) continue;
+    if(GS.fuseAnim&&(cell===GS.fuseAnim.A||cell===GS.fuseAnim.B)) continue;
     let x=cX(c), y=(GS.darkDimension>0? cY(r)+cell.fall : cY(r)-cell.fall);
     if(act&&act.axis==='row'&&r===act.idx){
       let px=((c*T+act.off)%GW+GW)%GW; drawStressTile(cell,GX+px,y); if(px>GW-T) drawStressTile(cell,GX+px-GW,y);
@@ -2413,6 +2427,26 @@ function render(now){
   ctx.restore();
   
   if (caAmount > 0) { ctx.translate(-caAmount, 0); ctx.globalCompositeOperation = 'source-over'; }
+  // Fusie-voorbeeld tijdens slepen: energieband tussen de twee tegels + naam
+  if(GS.drag.on&&GS.drag.fusePreview){ const fp=GS.drag.fusePreview; const ax=cX(fp.a[0])+T/2, ay=cY(fp.a[1])+T/2, bx=cX(fp.b[0])+T/2, by=cY(fp.b[1])+T/2;
+    const pp=0.6+0.4*Math.sin(pulse*14);
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(const [w,al] of [[18,.18],[9,.4],[3,.95]]){ ctx.lineWidth=w; ctx.globalAlpha=al*pp; ctx.strokeStyle=w===3?'#ffffff':fp.col; ctx.beginPath(); ctx.moveTo(ax,ay);
+      for(let i=1;i<=6;i++){ const u=i/6; ctx.lineTo(ax+(bx-ax)*u+(i<6?(Math.random()-.5)*10:0), ay+(by-ay)*u+(i<6?(Math.random()-.5)*10:0)); } ctx.stroke(); }
+    for(const [px,py] of [[ax,ay],[bx,by]]){ ctx.globalAlpha=0.7*pp; const gs=T*1.3; ctx.drawImage(glowSprite(fp.col),px-gs/2,py-gs/2,gs,gs); ctx.globalAlpha=0.9; ctx.strokeStyle=fp.col; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(px,py,T*0.48,0,Math.PI*2); ctx.stroke(); }
+    ctx.restore();
+    ctx.save(); const lx=(ax+bx)/2, ly=Math.min(ay,by)-T*0.62; ctx.font='bold 24px '+UI_FONT; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+    const label='✦ '+fp.name.toUpperCase()+' ✦'; const half=ctx.measureText(label).width/2+10; const tx=clamp(lx,half,CW-half);
+    ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(label,tx,ly); ctx.shadowColor=fp.col; ctx.shadowBlur=14; ctx.fillStyle=fp.col; ctx.fillText(label,tx,ly); ctx.restore(); }
+  // Samensmelt-animatie: de twee tegels trekken naar elkaar toe, draaien en gloeien op
+  if(GS.fuseAnim){ const fa=GS.fuseAnim; const u=clamp(fa.t/FUSE_DUR,0,1); const k=u*u*(3-2*u);
+    const ax=cX(fa.a[0]), ay=cY(fa.a[1]), bx=cX(fa.b[0]), by=cY(fa.b[1]); const mx=(ax+bx)/2, my=(ay+by)/2;
+    ctx.save(); ctx.globalCompositeOperation='lighter'; const gs=T*(1.2+1.6*k); ctx.globalAlpha=0.3+0.6*k; ctx.drawImage(glowSprite(fa.col),mx+T/2-gs/2,my+T/2-gs/2,gs,gs);
+    for(let i=0;i<3;i++){ ctx.globalAlpha=0.5*k; ctx.strokeStyle=i%2?'#ffffff':fa.col; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(mx+T/2,my+T/2,T*(0.9-0.25*i)*(1-k*0.5),pulse*8+i*2,pulse*8+i*2+3.5); ctx.stroke(); }
+    ctx.restore();
+    for(const [cell,px,py,dir] of [[fa.A,ax,ay,1],[fa.B,bx,by,-1]]){ const x=px+(mx-px)*k, y=py+(my-py)*k; const sc=1+0.25*Math.sin(u*Math.PI)-0.35*k;
+      ctx.save(); ctx.translate(x+T/2,y+T/2); ctx.rotate(dir*k*Math.PI*0.9); ctx.scale(sc,sc); ctx.translate(-x-T/2,-y-T/2); drawTileAt(cell,x,y,pulse); ctx.restore(); }
+  }
 
   if(GS.flashA>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=GS.flashA*0.25; ctx.fillStyle=GS.flashCol; ctx.fillRect(-20,-20,CW+40,CH+40); ctx.restore(); }
   ctx.save(); ctx.globalCompositeOperation='lighter';
@@ -2571,7 +2605,7 @@ function render(now){
   ctx.textBaseline='alphabetic';
 
   if(eLow&&GS.state===STATES.IDLE&&!GS.deadlockActive){
-    const movesLeft=Math.floor(maxPaidDistance(Math.round(GS.energy))); const warnPulse=.5+.5*Math.sin(pulse*6);
+    const movesLeft=maxPaidDistance(GS.energy); const warnPulse=.5+.5*Math.sin(pulse*6);
     ctx.save(); ctx.font='bold 16px Orbitron,Arial'; ctx.fillStyle=eCritical?`rgba(255,60,30,${warnPulse})`:`rgba(255,160,80,${.7+.3*warnPulse})`;
     const wt=movesLeft<=1?'⚠ CRITICAL':'⚠ LOW';
     if(EM.horiz){ ctx.textAlign='right'; ctx.fillText(wt, EM.x+EM.w-10, EM.y+EM.h/2+6); } else { ctx.textAlign='center'; ctx.fillText(wt, EM.x+EM.w/2, EM.y-12); }
