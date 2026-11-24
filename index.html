@@ -46,7 +46,7 @@
   #recipeBtn { position:absolute; top:10px; right:12px; z-index:9; padding:8px 16px;
     border:1px solid #7df9ff; border-radius:10px; background:rgba(0,40,60,.45); color:#7df9ff;
     font-size:15px; letter-spacing:.1em; box-shadow:0 0 12px rgba(0,207,255,.45); cursor:pointer; }
-  #recipes { justify-content:flex-start; padding:5vh 6vw; overflow:hidden; }
+  #recipes { z-index:12; justify-content:flex-start; padding:5vh 6vw; overflow:hidden; }
   #recipes h2 { color:#ffd21f; text-shadow:0 0 14px #ffb300; letter-spacing:.2em; margin-bottom:14px; font-size:26px; }
   #helpScroll { width:100%; max-width:920px; flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:12px; }
   .helpSectionTitle { color:#ffd21f; text-shadow:0 0 10px rgba(255,179,0,.6); letter-spacing:.12em;
@@ -99,9 +99,9 @@
     <h2>❓ HELP</h2>
     <div id="helpScroll">
       <div id="elementGlossary"></div>
-      <div class="helpSectionTitle">⚗ Elemental Combinations</div>
-      <div style="max-width:640px;font-size:13px;color:#9ab;text-align:center;margin-bottom:10px;line-height:1.5;">
-        Match 6+ tiles of one element, touching a match of another element, to trigger most reactions below.
+      <div class="helpSectionTitle" id="codexTitle">✨ Fusion Codex</div>
+      <div style="max-width:640px;font-size:13px;color:#9ab;text-align:center;margin:0 auto 10px;line-height:1.5;">
+        Match 4 to create a ⚡ Charged tile · five in a row creates a ★ Star.<br>Slide two of them next to each other to FUSE. Every pair does something different — discover them all.
       </div>
       <div id="recipeList"></div>
       <div class="helpSectionTitle">⚛ Deep Mechanics</div>
@@ -109,7 +109,10 @@
         <div class="eg"><div class="nm" style="color:#c26bff;">⚛ Relics</div><div class="ds">From level 3, every 3 levels: pick one of two permanent modifiers for the rest of the run.</div></div>
         <div class="eg"><div class="nm" style="color:#7df9ff;">🌌 Wormhole Grid</div><div class="ds">From level 6, some levels fold rows onto themselves — matches wrap across the edge.</div></div>
         <div class="eg"><div class="nm" style="color:#c26bff;">🌑 Dark Dimension</div><div class="ds">From level 8: fuse two Stars together to flip gravity and surge Void energy for a few turns.</div></div>
-        <div class="eg"><div class="nm" style="color:#8a2be2;">🦠 Parasite</div><div class="ds">From level 7. Can't be matched and spreads each turn — only an explosion destroys it.</div></div>
+        <div class="eg"><div class="nm" style="color:#ff8a00;">☢ Reactor Core</div><div class="ds">From level 4. Counts down every move. Match next to it to defuse — the more moves left, the bigger the bonus. At 0 it melts down.</div></div>
+        <div class="eg"><div class="nm" style="color:#c6ff3d;">🦠 Virus</div><div class="ds">From level 5. Crawls one cell per move and leaves dead Husks; every 5 moves it splits. Purge it with a match next to it.</div></div>
+        <div class="eg"><div class="nm" style="color:#b48cff;">🕳 Black Hole</div><div class="ds">From level 6. Eats a neighbour every move and gains mass. Harvest it with a match next to it: payout × mass. At mass 8 it implodes.</div></div>
+        <div class="eg"><div class="nm" style="color:#7b8494;">▢ Husk</div><div class="ds">Dead shell left by hazards. Can't be matched — clear it with a match next to it, an explosion, Napalm Rain or a Tidal Wave.</div></div>
         <div class="eg"><div class="nm" style="color:#3ea8ff;">💧 Evolving Ice</div><div class="ds">From level 5. Unmatched Ice melts into Water, which boils away instantly next to Fire.</div></div>
         <div class="eg"><div class="nm" style="color:#baff5e;">👻 Ghost Echo (relic)</div><div class="ds">With this relic, every 10th move a Ghost repeats your last swipe for free.</div></div>
         <div class="eg wide"><div class="nm" style="color:#ffd21f;">🛡️ Adrenaline Shield</div><div class="ds">If a fruitless swipe would drain your last energy, an emergency capacitor saves you once per run.</div></div>
@@ -163,11 +166,11 @@ const CONFIG = {
   GRID: { COLS: 10, ROWS: 8, TILE: 90 },
   CANVAS: { W: 1280, H: 960 },
   ELEMENTS: {
-    NAMES: ['Fire','Ice','Poison','Electric','Void','Crystal', 'Star', 'Water', 'Parasite'],
-    COLORS: ['#ff5a36','#6fe0ff','#5dff3a','#ffd21f','#9d00ff','#ff22a1', '#ffffff', '#3b5bff', '#8a2be2'],
-    DARK:   ['#330c06','#04232e','#0c2606','#2b2303','#1a0033','#33001a', '#111111', '#080f38', '#170224'],
-    BASE_WEIGHTS: [120, 120, 80, 80, 45, 45, 0, 0, 0],
-    VALUES:       [10, 10, 25, 25, 80, 60, 0, 8, 5],
+    NAMES: ['Fire','Ice','Poison','Electric','Void','Crystal', 'Star', 'Water', 'Virus', 'Husk', 'Black Hole', 'Reactor Core'],
+    COLORS: ['#ff5a36','#6fe0ff','#5dff3a','#ffd21f','#9d00ff','#ff22a1', '#ffffff', '#3b5bff', '#c6ff3d', '#7b8494', '#b48cff', '#ff8a00'],
+    DARK:   ['#330c06','#04232e','#0c2606','#2b2303','#1a0033','#33001a', '#111111', '#080f38', '#0d1200', '#101216', '#000000', '#2a1200'],
+    BASE_WEIGHTS: [120, 120, 80, 80, 45, 45, 0, 0, 0, 0, 0, 0],
+    VALUES:       [10, 10, 25, 25, 80, 60, 0, 8, 5, 3, 0, 0],
   },
   ENERGY: {
     MAX: 30,
@@ -223,7 +226,7 @@ let VAULT_X=106, VAULT_Y=810;
 let HYPER_VIGNETTE=null, DARK_VIGNETTE=null;
 let boardReady=false, pendingOrient=null;
 const L={ mode:'side', energy:{x:0,y:0,w:0,h:0,horiz:false}, mult:{x:0,y:0,w:0,h:0,horiz:false} };
-const F=0, I=1, G=2, E=3, V=4, C=5, S=6, W=7, PZ=8; 
+const F=0, I=1, G=2, E=3, V=4, C=5, S=6, W=7, PZ=8, HUSK=9, BH=10, CORE=11; 
 const ENAMES=CONFIG.ELEMENTS.NAMES;
 const ECOL =CONFIG.ELEMENTS.COLORS;
 const EDARK=CONFIG.ELEMENTS.DARK;
@@ -279,7 +282,7 @@ function modeConfig(){ return GS.mode===GAME_MODES.ZEN ? CONFIG.MODE.ZEN : CONFI
 function hazardsEnabled(){ return true; }
 function isZen(){ return false; }
 // Systemen komen pas vrij naarmate je hoger komt — elk nieuw level voelt als een upgrade.
-const FEATURE_LEVEL = { stars:3, relics:3, hyper:4, iceMelt:5, crystalMelt:5, wormhole:6, parasite:7, bombs:7, darkDim:8 };
+const FEATURE_LEVEL = { fusion:2, stars:3, relics:3, core:4, hyper:4, iceMelt:5, crystalMelt:5, virus:5, blackhole:6, wormhole:6, bombs:7, darkDim:8 };
 function featureOn(f){ return currentLevel()>=(FEATURE_LEVEL[f]||1); }
 // Hoe hoger het level (en dus hoe zwaarder), hoe meer elke munt waard is.
 function rewardMult(){ return Math.round((1+0.3*(currentLevel()-1))*10)/10; }
@@ -313,14 +316,14 @@ function slideCostGrowth(){
 
 const RECIPE_UNLOCK_LEVEL={ 1:1, 2:2, 3:3, 6:4, 5:5, 8:6, 17:8, 14:9 };
 const LEVEL_UNLOCKS={
-  2:'🎨 Colour Wipe reaction unlocked!',
-  3:'⭐ STARS — chain a 7× cascade to spawn a Wildcard Star.\n⚛ RELICS — choose your first permanent power-up!\n💥 Plasma Nova unlocked · ⚠ Void tiles emerge.',
-  4:'🚀 HYPERDRIVE — hit a 10× cascade to ignite it!\n✚ Electric Strike unlocked!',
-  5:'💎 Crystal tiles emerge (big payout, but they corrode).\n💧 Ice now melts into Water · ⚗ Acid Burn unlocked!',
-  6:'❄ Blizzard unlocked — turn tiles golden!\n🌌 Wormhole levels can now appear.',
-  7:'💣 Bomb tiles clear 3×3 when they land.\n🦠 Parasite spores can now appear.',
-  8:'🌑 DARK DIMENSION — fuse two Stars!\n🕳 Supernova reaction unlocked!',
-  9:'💥 The Big Bang unlocked — full board wipe!',
+  2:'✨ FUSIONS — slide two Charged tiles next to each other to fuse them. 12 fusions to discover!',
+  3:'★ STARS — five in a row creates a Star. Star + Charged = Prismatic Cascade!\n⚛ RELICS — choose your first permanent power-up!',
+  4:'☢ REACTOR CORES — defuse them before they count down. Bigger bonus the sooner you do it.\n🚀 HYPERDRIVE — hit a 10× cascade!',
+  5:'🦠 VIRUS — it crawls and leaves Husks. Purge it for 400+ coins!\n💎 Crystal tiles emerge · 💧 Ice now melts.',
+  6:'🕳 BLACK HOLES — they grow by eating tiles. Harvest them heavy for huge payouts… before mass 8!\n🌌 Wormhole levels can appear.',
+  7:'💣 Bomb tiles clear 3×3 when they land.',
+  8:'🌑 DARK DIMENSION — match two Stars together!',
+  9:'🦠 Viruses can now appear in pairs. Hazards spawn faster.',
   10:'☀ SOLAR CORE — 2 reshuffles per level!'
 };
 
@@ -343,7 +346,7 @@ function computeLayout(aspect){
     CH=Math.round(Math.max(needH, needW/aspect)); CW=Math.round(CH*aspect);
     GX=Math.round((CW-needW)/2+left); GY=Math.round((CH-needH)/2+top);
     VAULT_X=GX-100; VAULT_Y=GY+GH-40;
-    L.energy={x:GX+GW+35,y:GY,w:50,h:GH-40,horiz:false}; L.mult={x:GX+GW+101,y:GY,w:36,h:GH-40,horiz:false};
+    L.energy={x:GX+GW+34,y:GY,w:30,h:GH-40,horiz:false}; L.mult={x:GX+GW+80,y:GY,w:30,h:GH-40,horiz:false};
     L.scoreX=GX; L.scoreY=GY+GH+70; L.scoreSize=30; L.levelY=GY+GH+70; L.levelBarY=GY+GH+85;
     L.bannerY=GY-86;
   } else {
@@ -351,7 +354,7 @@ function computeLayout(aspect){
     const side=30, top=200, bottom=290; const needW=GW+side*2, needH=top+GH+bottom;
     CH=Math.round(Math.max(needH, needW/aspect)); CW=Math.round(CH*aspect);
     GX=Math.round((CW-GW)/2); GY=Math.round((CH-needH)/2+top);
-    L.energy={x:GX,y:GY+GH+26,w:GW,h:42,horiz:true}; L.mult={x:GX,y:GY+GH+80,w:GW,h:22,horiz:true};
+    L.energy={x:GX,y:GY+GH+24,w:GW,h:26,horiz:true}; L.mult={x:GX,y:GY+GH+62,w:GW,h:16,horiz:true};
     VAULT_X=GX+60; VAULT_Y=GY+GH+222;
     L.scoreX=GX; L.scoreY=GY-112; L.scoreSize=40; L.levelY=GY-62; L.levelBarY=GY-48;
     L.bannerY=GY-22;
@@ -379,6 +382,7 @@ function transposeBoard(){
   for(const h of GS.holes){ const t=h.c; h.c=h.r; h.r=t; }
   for(const m of GS.miasmas){ const t=m.c; m.c=m.r; m.r=t; }
   if(GS.lastSwipe) GS.lastSwipe.axis = GS.lastSwipe.axis==='row'?'col':'row';
+  GS.lastSlideLine=null;
   if(GS.rescueMove) GS.rescueMove.axis = GS.rescueMove.axis==='row'?'col':'row';
   const t=COLS; COLS=ROWS; ROWS=t;
 }
@@ -616,6 +620,16 @@ function buildSprites(){
   const pcore=new Path2D(); pcore.arc(T/2,T/2,T*.09,0,Math.PI*2);
   g.fillStyle='#ff2d78'; g.globalAlpha=.55; g.fill(pcore); g.globalAlpha=1;
   SPR.base[8]=c; SPR.mega[8]=c;
+
+  // Husk (t=9): uitgeholde, gebarsten schil — blokkeert matches
+  c=mkCanvas(T,T); g=c.getContext('2d');
+  const hBg=new Path2D(); hBg.roundRect ? hBg.roundRect(9,9,T-18,T-18,12) : hBg.rect(9,9,T-18,T-18);
+  g.fillStyle='#0e1014'; g.fill(hBg); g.setLineDash([6,5]); g.lineWidth=2.5; g.strokeStyle='#5b6372'; g.stroke(hBg); g.setLineDash([]);
+  g.strokeStyle='#3a404c'; g.lineWidth=2; g.beginPath(); g.moveTo(T*.3,T*.25); g.lineTo(T*.48,T*.5); g.lineTo(T*.38,T*.72); g.moveTo(T*.48,T*.5); g.lineTo(T*.7,T*.42); g.stroke();
+  SPR.base[9]=c; SPR.mega[9]=c;
+  // Black hole (10) en Reactor core (11): achtergrond; de rest wordt live getekend
+  for(const t of [10,11]){ c=mkCanvas(T,T); g=c.getContext('2d'); const b=new Path2D(); b.roundRect ? b.roundRect(7,7,T-14,T-14,14) : b.rect(7,7,T-14,T-14);
+    g.fillStyle=EDARK[t]; g.fill(b); g.lineWidth=2; g.strokeStyle=ECOL[t]; g.globalAlpha=.45; g.stroke(b); SPR.base[t]=c; SPR.mega[t]=c; }
 }
 buildSprites();
 
@@ -805,14 +819,10 @@ function newTile(){
   for(let i=0; i<eCount; i++) { if(r < BASE_WEIGHTS[i]) { t = i; break; } r -= BASE_WEIGHTS[i]; }
 
   const _lvlNow=currentLevel();
-  const _bombChance=GS.hyper ? HYPER_BOMB_CHANCE : (hazardsEnabled()&&_lvlNow>=7 ? 0.05 : 0);
+  const _bombChance=GS.hyper ? HYPER_BOMB_CHANCE : (featureOn('bombs') ? 0.04 : 0);
   const tile={t,mega:false,dormant:false,gold:false,bomb:_bombChance>0&&Math.random()<_bombChance,fall:0,turnsOnBoard:0};
   if(!tile.bomb&&!GS.tut.active&&Math.random()<RNG_DROP_CHANCE){
     if(Math.random()<0.5) tile.mega=true; else tile.gold=true; tile.luckyDrop=true; 
-  }
-  if(!tile.bomb&&!tile.mega&&!tile.gold&&!GS.tut.active&&hazardsEnabled()&&_lvlNow>=CONFIG.PARASITE.SPAWN_START_LEVEL
-     &&countParasites()<3&&Math.random()<CONFIG.PARASITE.SPAWN_CHANCE*Math.min(hazardScale(),2)){
-    tile.t=PZ; tile.gold=false; tile.infectT=CONFIG.PARASITE.INFECT_EVERY_TURNS;
   }
   return tile;
 }
@@ -1131,22 +1141,6 @@ function applyTurnStatuses(){
   }
   GS.miasmas=GS.miasmas.filter(m=>m.turns>0);
   
-  for(const h of GS.holes){
-    let n=0; const hx = cX(h.c)+T/2, hy = cY(h.r)+T/2;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
-      if(n>=3) break; 
-      const c=h.c+dx,r=h.r+dy;
-      if(inGrid(c,r)&&GS.board[r][c]){ 
-          const eatenCell = GS.board[r][c]; const eatenVal = ELEM_VAL[eatenCell.t] * (eatenCell.gold ? goldMult() : 1);
-          destroyOne(c,r,'#c26bff', false); 
-          fxSuck(cX(c)+T/2, cY(r)+T/2, hx, hy);
-          flyCoins(hx, hy, eatenVal, '#ffd21f'); GS.energy=clamp(Math.round(GS.energy+1),0,ENERGY_MAX); n++; 
-      }
-    }
-    boom(1.1); h.turns--;
-  }
-  GS.holes=GS.holes.filter(h=>h.turns>0);
-
   if(hazardsEnabled()){
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
       const cell=GS.board[r][c];
@@ -1181,37 +1175,102 @@ function applyTurnStatuses(){
     checkSteamReaction();
   }
 
-  if(hazardsEnabled()){
-    const parasiteCells=[];
-    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&GS.board[r][c].t===PZ) parasiteCells.push([c,r]);
-    for(const [c,r] of parasiteCells){
-      const cell=GS.board[r][c]; if(!cell||cell.t!==PZ) continue;
-      cell.infectT=(cell.infectT==null?CONFIG.PARASITE.INFECT_EVERY_TURNS:cell.infectT)-1;
-      if(cell.infectT===1) addTelegraph(c,r,'infecting');
-      if(cell.infectT<=0){
-        const cand=[];
-        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-          const nc=c+dx,nr=r+dy;
-          if(inGrid(nc,nr)&&GS.board[nr][nc]&&GS.board[nr][nc].t!==PZ&&!GS.board[nr][nc].mega) cand.push([nc,nr]);
-        }
-        if(cand.length&&countParasites()<8){
-          const [ic,ir]=cand[rnd(cand.length)]; const target=GS.board[ir][ic];
-          target.t=PZ; target.mega=false; target.gold=false; target.bomb=false; target.infectT=CONFIG.PARASITE.INFECT_EVERY_TURNS;
-          const tx=cX(ic)+T/2, ty=cY(ir)+T/2; burst(tx,ty,'#8a2be2',12); addText(tx,ty-18,'INFECTED','#8a2be2'); boom(0.5);
-          hintOnce('parasite','🦠 The Parasite spreads to a neighbour every couple of turns. It cannot be matched — only an elemental explosion destroys it!');
-        }
-        cell.infectT=CONFIG.PARASITE.INFECT_EVERY_TURNS;
-      }
-    }
-  }
+  updateHazards();
 
   if(GS.darkDimension>0){
     GS.darkDimension--;
     if(GS.darkDimension<=0){ GS.darkDimension=0; toast('🌑 Dark Dimension collapses — normal physics restored.'); }
   }
 }
+/* ---------------------------------------------------------------------
+ * RISICO-ELEMENTEN — leveren veel op, maar zetten de klok onder druk.
+ *  Virus: kruipt elke beurt een hokje verder en laat een lege Husk achter. Om de 5 beurten deelt het.
+ *  Black Hole: slokt elke beurt een buur op en wordt zwaarder (massa). Hoe zwaarder, hoe meer het oplevert
+ *              als je het oogst — maar bij massa 8 implodeert het: energie weg en een krater van Husks.
+ *  Reactor Core: telt af. Ontmantel hem (match ernaast) voor een vette bonus; bij 0 ontploft hij.
+ *  Opruimen: maak een match direct ernaast, of raak ze met een explosie/fusie.
+ * ------------------------------------------------------------------- */
+function isHazard(cell){ return cell && (cell.t===PZ||cell.t===BH||cell.t===CORE||cell.t===HUSK); }
+function countType(t){ let n=0; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r]&&GS.board[r][c]; if(cl&&cl.t===t) n++; } return n; }
+function plainCells(){ const out=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t<=5&&!cl.mega&&!cl.gold&&!cl.bomb) out.push([c,r]); } return out; }
+function makeHazard(cell,t){ cell.t=t; cell.mega=false; cell.gold=false; cell.bomb=false; cell.dormant=false; cell.telegraph=null; cell.frozen=0;
+  if(t===PZ){ cell.age=0; } if(t===BH){ cell.mass=1; cell.bank=0; } if(t===CORE){ const lvl=currentLevel(); cell.timerMax=Math.max(4,8-Math.floor(lvl/3)); cell.timer=cell.timerMax; } }
+function trySpawnHazard(){
+  const lvl=currentLevel(); const opts=[];
+  if(featureOn('core') && countType(CORE) < 1+Math.floor((lvl-4)/4)) opts.push(CORE);
+  if(featureOn('virus') && countType(PZ) < (lvl>=9?2:1)) opts.push(PZ);
+  if(featureOn('blackhole') && countType(BH) < 1) opts.push(BH);
+  if(!opts.length) return;
+  const t=opts[rnd(opts.length)]; const cand=plainCells(); if(!cand.length) return;
+  const [c,r]=cand[rnd(cand.length)]; makeHazard(GS.board[r][c],t);
+  const px=cX(c)+T/2, py=cY(r)+T/2; fxRing(px,py,ECOL[t],T*1.6); burst(px,py,ECOL[t],18); sfx.telegraph();
+  if(t===PZ){ addText(px,py-34,'🦠 VIRUS!',ECOL[t],30); hintOnce('virus','🦠 A Virus! It crawls one cell per turn and leaves dead Husks. Make a match right next to it to purge it — big payout!'); }
+  if(t===BH){ addText(px,py-34,'🕳 BLACK HOLE',ECOL[t],30); hintOnce('bh','🕳 A Black Hole grows by eating tiles. Harvest it with a match next to it — the heavier it is, the more it pays. At mass 8 it implodes!'); }
+  if(t===CORE){ addText(px,py-34,'☢ REACTOR CORE',ECOL[t],30); hintOnce('core','☢ A Reactor Core is counting down! Defuse it with a match next to it. The more moves left, the bigger the bonus.'); }
+}
+function updateHazards(){
+  if(GS.tut.active) return;
+  const lvl=currentLevel(); const freq = lvl>=9?4:(lvl>=6?5:6);
+  if(GS.turnNr%freq===0) trySpawnHazard();
+  // Virussen kruipen
+  const viruses=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t===PZ) viruses.push([c,r,cl]); }
+  for(const [c,r,cl] of viruses){
+    if(cl.frozen>0){ cl.frozen--; continue; }
+    cl.age=(cl.age||0)+1;
+    const cand=[]; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; const nb=GS.board[nr][nc]; if(nb&&nb.t<=7&&nb.t!==S&&!nb.mega) cand.push([nc,nr]); }
+    if(!cand.length) continue;
+    const [nc,nr]=cand[rnd(cand.length)]; const target=GS.board[nr][nc];
+    const split = cl.age%5===0 && countType(PZ)<3;
+    makeHazard(target,PZ); target.age=0;
+    if(!split){ cl.t=HUSK; cl.age=0; } else { cl.age=0; addText(cX(c)+T/2,cY(r)+T/2-30,'SPLIT!',ECOL[PZ],28); }
+    const tx=cX(nc)+T/2, ty=cY(nr)+T/2; burst(tx,ty,ECOL[PZ],12); fxSuck(cX(c)+T/2,cY(r)+T/2,tx,ty); boom(0.4);
+  }
+  // Zwarte gaten eten en groeien
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cl=GS.board[r][c]; if(!cl||cl.t!==BH) continue;
+    if(cl.frozen>0){ cl.frozen--; continue; }
+    const cand=[]; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){ const nc=c+dx,nr=r+dy; if(inGrid(nc,nr)&&GS.board[nr][nc]&&GS.board[nr][nc].t<=7&&!GS.board[nr][nc].mega) cand.push([nc,nr]); }
+    if(cand.length){ const [ec,er]=cand[rnd(cand.length)]; const eaten=GS.board[er][ec];
+      cl.bank=(cl.bank||0)+ELEM_VAL[eaten.t]*(eaten.gold?goldMult():1); fxSuck(cX(ec)+T/2,cY(er)+T/2,cX(c)+T/2,cY(r)+T/2); burst(cX(ec)+T/2,cY(er)+T/2,ECOL[eaten.t],8); GS.board[er][ec]=null; }
+    cl.mass=(cl.mass||1)+1; boom(0.5+cl.mass*0.08);
+    if(cl.mass===6) addText(cX(c)+T/2,cY(r)+T/2-36,'⚠ UNSTABLE',ECOL[BH],28);
+    if(cl.mass>=8){ // implosie
+      const px=cX(c)+T/2, py=cY(r)+T/2; const loss=Math.round(6*hazardScale());
+      GS.energy=clamp(GS.energy-loss,0,ENERGY_MAX); GS.energyFlash=.5;
+      for(let rr=r-1;rr<=r+1;rr++)for(let cc=c-1;cc<=c+1;cc++){ if(inGrid(cc,rr)&&GS.board[rr][cc]&&!(cc===c&&rr===r)&&GS.board[rr][cc].t!==S){ makeHazard(GS.board[rr][cc],HUSK); } }
+      GS.board[r][c]=null; fxRing(px,py,'#b48cff',T*3); fxRing(px,py,'#000000',T*2); boom(2.2); GS.shake=20; GS.shakeSpecial=true; flashScreen('#6a00ff',0.5);
+      addText(px,py-20,'IMPLOSION −'+loss+' ⚡','#ff6a6a',40);
+    }
+  }
+  // Reactorkernen tellen af
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cl=GS.board[r][c]; if(!cl||cl.t!==CORE) continue;
+    if(cl.frozen>0){ cl.frozen--; continue; }
+    cl.timer--; if(cl.timer===1) sfx.telegraph();
+    if(cl.timer<=0){
+      const px=cX(c)+T/2, py=cY(r)+T/2; const loss=Math.round(8*hazardScale());
+      GS.energy=clamp(GS.energy-loss,0,ENERGY_MAX); GS.energyFlash=.5;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(inGrid(nc,nr)&&GS.board[nr][nc]&&GS.board[nr][nc].t!==S) makeHazard(GS.board[nr][nc],HUSK); }
+      makeHazard(cl,HUSK); for(let i=0;i<3;i++) burst(px,py,['#ff3020','#ff8a00','#ffd21f'][i],24);
+      fxRing(px,py,'#ff3020',T*2.6); boom(2.4); GS.shake=22; GS.shakeSpecial=true; flashScreen('#ff3020',0.6);
+      addText(px,py-20,'MELTDOWN −'+loss+' ⚡','#ff5a3a',42);
+    }
+  }
+  if(boardHasNulls()) GS.hazardGravity=true;
+}
+// Beloning bij het opruimen van een risico-element (wordt aangeroepen vlak voordat de cel verdwijnt)
+function harvestHazard(c,r,cell){
+  const px=cX(c)+T/2, py=cY(r)+T/2;
+  if(cell.t===PZ){ flyCoins(px,py,400,'#c6ff3d'); addText(px,py-24,'🦠 PURGED!','#c6ff3d',34); burst(px,py,'#c6ff3d',26); fxRing(px,py,'#c6ff3d',T*1.4); boom(1.1); }
+  else if(cell.t===BH){ const m=cell.mass||1; const pay=Math.round(((cell.bank||0)*3+120)*m); flyCoins(px,py,pay,'#ffd21f');
+    addText(px,py-24,'🕳 HARVEST ×'+m,'#e9dcff',36+m*2); fxRing(px,py,'#b48cff',T*(1+m*0.3)); for(let i=0;i<m;i++) burst(px,py,i%2?'#ffd21f':'#b48cff',10); boom(1+m*0.12); hitstop(0.05+m*0.01); if(m>=6) flashScreen('#b48cff',0.4); }
+  else if(cell.t===CORE){ const left=Math.max(1,cell.timer||1); const pay=150*left+250; flyCoins(px,py,pay,'#ff8a00'); const eg=2+left;
+    GS.energy=clamp(GS.energy+eg,0,ENERGY_MAX); addText(px,py-24,'☢ DEFUSED ×'+left+'  +'+eg+'⚡','#ffd29a',32); fxRing(px,py,'#ff8a00',T*1.8); burst(px,py,'#ffd21f',24); boom(1.2); }
+  else if(cell.t===HUSK){ flyCoins(px,py,15,'#aab'); burst(px,py,'#7b8494',8); }
+}
 function destroyOne(c,r,col, fly){
   const cell=GS.board[r][c]; if(!cell) return;
+  if(isHazard(cell)){ harvestHazard(c,r,cell); GS.board[r][c]=null; return; }
   const bx=cX(c)+T/2, by=cY(r)+T/2; burst(bx,by,col||ECOL[cell.t],10);
   if(fly) { GS.moveEarned+=1; flyCoins(bx,by,ELEM_VAL[cell.t],'#ffe98a'); GS.energy=clamp(Math.round(GS.energy+1),0,ENERGY_MAX); }
   GS.board[r][c]=null;
@@ -1260,6 +1319,21 @@ function anyFalling(){
   return false;
 }
 
+// Match van 4+ (of L/T-vorm) laat een Geladen tegel achter; een rechte lijn van 5+ maakt een Star (vanaf level 3).
+function planCreations(groups){
+  const out=[]; const sl=GS.lastSlideLine;
+  for(const g of groups){
+    if(g.cells.length<4||g.t===S) continue;
+    const set=new Set(g.cells.map(([c,r])=>key(c,r))); let maxRun=0;
+    for(const [c,r] of g.cells){ let h=1; while(set.has(key(c+h,r))) h++; let v=1; while(set.has(key(c,r+v))) v++; maxRun=Math.max(maxRun,h,v); }
+    const ok=g.cells.filter(([c,r])=>{ const cl=GS.board[r][c]; return cl&&!cl.mega&&cl.t!==S; }); if(!ok.length) continue;
+    let pick=null;
+    if(sl&&GS.comboChain===1) pick=ok.find(([c,r])=> sl.axis==='row'? r===sl.idx : c===sl.idx);
+    if(!pick) pick=ok[Math.floor(ok.length/2)];
+    out.push({c:pick[0], r:pick[1], kind:(maxRun>=5&&featureOn('stars'))?'star':'charged'});
+  }
+  return out;
+}
 function doStep(){
   const fused=fuse2x2();
   const {groups,gid,mega5}=findGroups();
@@ -1283,6 +1357,7 @@ function doStep(){
       if(g.cells.length>=REACT_MIN_GROUP) GS.bigChainElems.add(g.t); 
       for(const [c,r] of g.cells){ rm.add(key(c,r)); matched.add(key(c,r)); } }
 
+    mem.currentCreations = planCreations(groups);
     GS.matchFlashRm = new Set([...rm]); GS.matchFlashT = MATCH_FLASH_DUR; GS.state=STATES.MATCH_FLASH;
     mem.currentGroups = groups; mem.currentGid = gid; mem.currentMega5 = mega5; mem.currentMatched = matched;
   }
@@ -1295,14 +1370,15 @@ function processRemovals() {
     const mega5 = mem.currentMega5; const matched = mem.currentMatched; const rm = GS.matchFlashRm;
     let megaComboMult = 1; // schaalt de coin-opbrengst mee met het aantal megategels dat samen matcht
     
-    for(const m of mega5){
-      const k=key(m.c,m.r);
-      if(rm.has(k)&&GS.board[m.r][m.c]){
-        rm.delete(k); const cell=GS.board[m.r][m.c]; cell.mega=true;
-        fxRing(cX(m.c)+T/2,cY(m.r)+T/2,ECOL[cell.t],T);
-      }
+    for(const cr of (mem.currentCreations||[])){
+      const k=key(cr.c,cr.r); const cell=GS.board[cr.r][cr.c]; if(!cell||!rm.has(k)) continue;
+      rm.delete(k); const px=cX(cr.c)+T/2, py=cY(cr.r)+T/2;
+      if(cr.kind==='star'){ cell.t=S; cell.dormant=true; cell.mega=false; fxRing(px,py,'#ffffff',T*1.4); burst(px,py,'#ffffff',20); tone(700,1800,.3,'triangle',.14);
+        addText(px,py-30,'★ STAR','#ffffff',34); hintOnce('star5','★ Five in a row creates a Star — a Wildcard. Slide it next to a charged tile for a Prismatic Cascade!'); }
+      else { cell.mega=true; fxRing(px,py,ECOL[cell.t],T*1.1); burst(px,py,ECOL[cell.t],16); tone(300,1100,.2,'triangle',.12);
+        addText(px,py-30,'⚡ CHARGED','#ffffff',26);
+        hintOnce('charged', featureOn('fusion') ? '⚡ Match 4 to make a Charged tile. Slide two Charged tiles next to each other to FUSE them!' : '⚡ Match 4 to make a Charged tile — match it again to release its power!'); }
     }
-
     const reactOK = GS.comboChain<=25;
     if(reactOK){
       const sizeOf=i=>groups[i].cells.length;
@@ -1364,49 +1440,8 @@ function processRemovals() {
           }
       }
       
-      if(GS.bigChainElems.size>=4&&!GS.oerknalDone){
-        GS.oerknalDone=true; const [c,r]=groups[0].cells[0]; triggerRecipe(14,{c,r},rm); GS.bigChainElems.clear(); GS.chainElems.clear(); GS.chainElemLastPos={};
-      }
-      
-      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-        const cell=GS.board[r][c]; if(!cell||!cell.mega||rm.has(key(c,r))) continue;
-        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-          const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; const gi=gid[nr][nc]; if(gi<0) continue;
-          triggerRecipe(17,{c,r},rm); break; }
-      }
-      
-      if(GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN){
-        for(const g of groups){
-          if(GS.reactionsThisTurn>=MAX_REACTIONS_PER_TURN) break;
-          if(g.cells.length<REACT_MIN_GROUP) continue;
-          const pid=PURE[g.t]; if(!pid) continue;
-          const [c,r]=g.cells[0]; if(triggerRecipe(pid,{c,r},rm,null)) GS.reactionsThisTurn++;
-        }
-      }
+    }
 
-      if(GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN){
-        const seenDuo=new Set();
-        for(let r=0;r<ROWS&&GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN;r++)
-         for(let c=0;c<COLS&&GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN;c++){
-          const a=gid[r][c]; if(a<0) continue;
-          for(const [dx,dy] of [[1,0],[0,1]]){
-            const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; const b=gid[nr][nc]; if(b<0||b===a) continue;
-            const ta=groups[a].t, tb=groups[b].t; if(ta===tb || ta===6 || tb===6) continue;
-            if(sizeOf(a)<REACT_MIN_GROUP&&sizeOf(b)<REACT_MIN_GROUP) continue;
-            const dk=Math.min(ta,tb)+','+Math.max(ta,tb); if(seenDuo.has(dk)) continue;
-            seenDuo.add(dk); const id=DUO[dk]; if(id&&triggerRecipe(id,{c,r},rm, null)) GS.reactionsThisTurn++;
-          }
-        }
-      }
-
-      // Colour Wipe (Poison + Electric) telt niet hoe de matches op het veld liggen: 3+ Poison
-      // en 3+ Electric ergens in dezelfde zet (ook in losse, niet-aangrenzende matches) volstaat.
-      if(GS.reactionsThisTurn<MAX_REACTIONS_PER_TURN&&!GS.chainRecipes.has(2)&&GS.chainElems.has(G)&&GS.chainElems.has(E)){
-        const pt=GS.chainElemLastPos[E]||GS.chainElemLastPos[G];
-        if(pt){ const [c,r]=pt; if(triggerRecipe(2,{c,r},rm,null)) GS.reactionsThisTurn++; }
-      }
-    } 
-    
     if(GS.comboChain===1) sfx.match(1);
     if(reactOK){
       const matchedMegas=[];
@@ -1418,7 +1453,7 @@ function processRemovals() {
         const comboN = matchedMegas.length;
         const comboScale = 1 + 0.4*(comboN-2);
         megaComboMult = 1 + 0.5*(comboN-1);
-        addText(GX+GW/2,GY+GH*0.4,'💥 MEGA COMBO ×'+comboN,'#c26bff',52); if(comboN>=3) flashScreen('#c26bff',0.6); hitstop(0.1);
+        addText(GX+GW/2,GY+GH*0.4,'⚡ CHARGE CHAIN ×'+comboN,'#c26bff',52); if(comboN>=3) flashScreen('#c26bff',0.6); hitstop(0.1);
         boom(Math.min(2.4,1.3*comboScale)); GS.shake=Math.min(28,12*comboScale); GS.shakeSpecial = comboN>=3; GS.timeScale=Math.max(0.05,0.15/comboScale);
         const areaR = comboN>=4 ? 2 : 1;
         for(let i=1;i<comboN;i++){ collectArea(rm,matchedMegas[i].c,matchedMegas[i].r,areaR); fxRing(cX(matchedMegas[i].c)+T/2,cY(matchedMegas[i].r)+T/2,'#c26bff',T*(1.5+0.3*(comboN-2))); }
@@ -1440,6 +1475,8 @@ function processRemovals() {
     }
     if(GS.comboChain>=10&&GS.comboChain<JACKPOT_CASCADE&&!GS.hyper&&!GS.hyperThisChain&&!GS.hyperPending&&featureOn('hyper')) GS.hyperPending=true;
 
+    for(const k of matched){ const [c,r]=k.split(',').map(Number);
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(inGrid(nc,nr)&&isHazard(GS.board[nr][nc])) rm.add(key(nc,nr)); } }
     const sizeBonus = {};
     for(const g of groups){
       const bonus = 1 + 0.15 * Math.max(0, g.cells.length - 3);
@@ -1450,6 +1487,7 @@ function processRemovals() {
 
     for(const k of rm){
       const [c,r]=k.split(',').map(Number); const cell=GS.board[r][c]; if(!cell) continue;
+      if(isHazard(cell)){ harvestHazard(c,r,cell); GS.board[r][c]=null; removedN++; continue; }
       if(cell.gold) goldN++; if(cell.t===E) electricN++; if(cell.t===V) voidN++; if(cell.t===I) iceN++;
       const bx=cX(c)+T/2, by=cY(r)+T/2; coinSrcX+=bx; coinSrcY+=by; coinSrcN++;
       earned += (ELEM_VAL[cell.t] * (cell.gold? goldMult() : 1)) * mult * (sizeBonus[k] || 1) * megaComboMult;
@@ -1457,7 +1495,7 @@ function processRemovals() {
       if(cell.mega){ burst(bx,by,ECOL[cell.t],28); fxRing(bx,by,ECOL[cell.t],T*0.8);
       } else if(cell.t===6){ burst(bx,by,'#ffffff',30); fxRing(bx,by,'#ffffff',T*1.2);
       } else { burst(bx,by,ECOL[cell.t],10);
-        if(cell.t===E) { fxLightningBolt(bx,by, bx+(Math.random()-.5)*T*2, by+(Math.random()-.5)*T*2); } 
+        if(cell.t===E) { fxLightningBolt(bx,by, bx+(Math.random()-.5)*T*2, by+(Math.random()-.5)*T*2); fxOrb(bx,by); } 
         if(cell.t===I) fxFrost(bx,by);     
       }
       GS.board[r][c]=null; removedN++;
@@ -1616,6 +1654,7 @@ function endResolve(){
   // Belangrijk: pas NU de tegels van de speler al gematcht zijn, spreidt de Parasite/smelt-status uit.
   // Zo kan een tegel niet meer "onder je vingers vandaan" geïnfecteerd raken vlak vóórdat je eigen match wordt herkend.
   if(GS.currentTurnIsSlide) applyTurnStatuses();
+  if(GS.hazardGravity||boardHasNulls()){ GS.hazardGravity=false; if(boardHasNulls()){ gravity(); GS.state=STATES.FALL; GS.currentTurnIsSlide=false; return; } }
   checkLevelUp();
   if(pendingHyper) startHyper();
   GS.idleT=0; GS.idleWarned=false;
@@ -1630,12 +1669,124 @@ function maybeTriggerEcho(){
   const sw=GS.lastSwipe;
   toast('👻 ECHO — the Ghost repeats your last move for free!');
   if(sw.axis==='row') rotateRow(sw.idx, sw.shift); else rotateCol(sw.idx, sw.shift);
+  GS.lastSlideLine={axis:sw.axis, idx:sw.idx};
   startResolve(true);
   return true;
 }
 function findCellPos(cell){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]===cell) return [c,r];
   return null;
+}
+const FUSIONS=[
+  {id:'steam',    n:'Steam Geyser',     col:'#e8fbff', pair:'Fire + Ice',              d:'A 5×5 geyser of superheated steam. +6 ⚡ and defuses Reactor Cores it touches.'},
+  {id:'plasma',   n:'Plasma Cross',     col:'#ff4fa0', pair:'Fire + Electric',         d:'Two plasma lances burn both diagonals across the whole board.'},
+  {id:'chain',    n:'Chain Lightning',  col:'#fff36a', pair:'Ice + Electric',          d:'Lightning leaps 14 times — hunting Viruses, Cores and Black Holes first.'},
+  {id:'napalm',   n:'Napalm Rain',      col:'#ff8a2a', pair:'Fire + Poison',           d:'Burning drops rain on 14 tiles. Every Husk on the board is scorched away.'},
+  {id:'frost',    n:'Golden Frost',     col:'#ffe27a', pair:'Ice + Poison',            d:'10 tiles turn to gold (×5 coins). All hazards freeze solid for 3 turns.'},
+  {id:'wipe',     n:'Colour Wipe',      col:'#b6ff4a', pair:'Poison + Electric',       d:'Every tile of the most common element is wiped from the board.'},
+  {id:'horizon',  n:'Event Horizon',    col:'#b48cff', pair:'Void + any',              d:'Everything within 3 cells collapses inward. Black Holes it swallows pay double.'},
+  {id:'prism',    n:'Prism Burst',      col:'#ff6af0', pair:'Crystal + any',           d:'Light splits into 8 beams — rows, columns and diagonals.'},
+  {id:'tidal',    n:'Tidal Wave',       col:'#4f7bff', pair:'Water + any',             d:'A wave sweeps the bottom three rows and washes away every Husk.'},
+  {id:'overload', n:'Overload',         col:'#ffffff', pair:'Same element ×2',         d:'Three rows and three columns explode in that element’s colour.'},
+  {id:'prismatic',n:'Prismatic Cascade',col:'#ffffff', pair:'Star + Charged',          d:'Every tile of that element becomes charged — and they all detonate.'},
+  {id:'bigbang',  n:'The Big Bang',     col:'#ffffff', pair:'Star + Star',             d:'The whole board erupts. Triggers Hyperdrive.'},
+];
+const FUSION_PAIR={'0,1':'steam','0,3':'plasma','1,3':'chain','0,2':'napalm','1,2':'frost','2,3':'wipe'};
+let fusionsFound=new Set(JSON.parse(store.get('rf_fusions')||'[]'));
+function isSpecial(cl){ return cl && (cl.mega || (cl.t===S && !cl.dormant)); }
+function findFusionPair(){
+  const sl=GS.lastSlideLine; if(!sl) return null; const cells=[];
+  if(sl.axis==='row'){ for(let c=0;c<COLS;c++) cells.push([c,sl.idx]); } else { for(let r=0;r<ROWS;r++) cells.push([sl.idx,r]); }
+  for(const [c,r] of cells){ const a=GS.board[r][c]; if(!isSpecial(a)) continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nc=c+dx,nr=r+dy; if(!inGrid(nc,nr)) continue; if(isSpecial(GS.board[nr][nc])) return {a:[c,r],b:[nc,nr]}; } }
+  return null;
+}
+function fusionType(A,B){
+  const as=A.t===S, bs=B.t===S;
+  if(as&&bs) return 'bigbang';
+  if(as||bs) return 'prismatic';
+  const ta=A.t, tb=B.t;
+  if(ta===tb) return 'overload';
+  if(ta===V||tb===V) return 'horizon';
+  if(ta===C||tb===C) return 'prism';
+  if(ta===W||tb===W) return 'tidal';
+  return FUSION_PAIR[Math.min(ta,tb)+','+Math.max(ta,tb)]||'overload';
+}
+function lineCells(rm,c0,r0,dc,dr){ let c=c0,r=r0; while(inGrid(c,r)){ if(GS.board[r][c]) rm.add(key(c,r)); c+=dc; r+=dr; } }
+function checkFusion(){
+  if(!featureOn('fusion')) return false;
+  const pr=findFusionPair(); if(!pr) return false;
+  const [ac,ar]=pr.a, [bc,br]=pr.b; const A=GS.board[ar][ac], B=GS.board[br][bc];
+  const type=fusionType(A,B); const F_=FUSIONS.find(f=>f.id===type);
+  const mx=(cX(ac)+cX(bc))/2+T/2, my=(cY(ar)+cY(br))/2+T/2; const mc=Math.round((ac+bc)/2), mr=Math.round((ar+br)/2);
+  const rm=new Set([key(ac,ar),key(bc,br)]); let payMult=3;
+  const hazardsAll=()=>{ const h=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&(cl.t===PZ||cl.t===BH||cl.t===CORE)) h.push([c,r]); } return h; };
+  switch(type){
+    case 'steam':
+      collectArea(rm,mc,mr,2); for(let i=0;i<5;i++) fxGeyser(cX(clamp(mc-2+i,0,COLS-1))+T/2, cY(clamp(mr+2,0,ROWS-1))+T, i*0.05);
+      GS.energy=clamp(GS.energy+6,0,ENERGY_MAX); addText(mx,my+40,'+6 ⚡','#7df9ff',30); break;
+    case 'plasma':
+      for(const [dc,dr] of [[1,1],[-1,-1],[1,-1],[-1,1]]){ lineCells(rm,mc,mr,dc,dr); const ex=mx+dc*GW, ey=my+dr*GW; fxLaser(mx,my,ex,ey,'#ff4fa0'); fxLaser(mx,my,ex,ey,'#ffb36a'); }
+      lineCells(rm,0,mr,1,0); fxLaser(GX,my,GX+GW,my,'#ff4fa0'); boom(1.8); break;
+    case 'chain': {
+      const pts=[[mx,my]]; const hz=hazardsAll(); const pool=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) pool.push([c,r]);
+      let cur=[mc,mr]; const targets=[...hz];
+      for(let i=0;i<14;i++){ let nxt=null;
+        if(targets.length){ nxt=targets.shift(); } else { let bd=1e9; for(const p of pool){ if(rm.has(key(p[0],p[1]))) continue; const d=Math.hypot(p[0]-cur[0],p[1]-cur[1])+Math.random()*2.5; if(d<bd){ bd=d; nxt=p; } } }
+        if(!nxt) break; rm.add(key(nxt[0],nxt[1])); pts.push([cX(nxt[0])+T/2,cY(nxt[1])+T/2]); cur=nxt; }
+      fxChain(pts,'#fff36a'); sfx.laser(); setTimeout(()=>sfx.laser(),120); break; }
+    case 'napalm': {
+      const pool=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&!rm.has(key(c,r))) pool.push([c,r]);
+      for(let i=0;i<14&&pool.length;i++){ const [c,r]=pool.splice(rnd(pool.length),1)[0]; rm.add(key(c,r)); fxDrop(cX(c)+T/2,cY(r)+T/2,i%2?'#ff8a2a':'#5dff3a',i*0.035); }
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&GS.board[r][c].t===HUSK) rm.add(key(c,r)); break; }
+    case 'frost': {
+      collectArea(rm,mc,mr,1); const pool=[]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t<=5&&!cl.mega&&!cl.gold&&!rm.has(key(c,r))) pool.push([c,r]); }
+      for(let i=0;i<10&&pool.length;i++){ const [c,r]=pool.splice(rnd(pool.length),1)[0]; GS.board[r][c].gold=true; fxFrost(cX(c)+T/2,cY(r)+T/2); burst(cX(c)+T/2,cY(r)+T/2,'#ffe27a',8); }
+      for(const [c,r] of hazardsAll()){ GS.board[r][c].frozen=3; fxFrost(cX(c)+T/2,cY(r)+T/2); }
+      fxRing(mx,my,'#e6fbff',GW*0.6); sfx.freeze(); payMult=2; break; }
+    case 'wipe': {
+      const cnt=[0,0,0,0,0,0,0,0]; for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t<=7&&cl.t!==S) cnt[cl.t]++; }
+      const col=cnt.indexOf(Math.max(...cnt));
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t===col){ rm.add(key(c,r)); fxLightningBolt(mx,my,cX(c)+T/2,cY(r)+T/2); } }
+      fxRing(mx,my,ECOL[col],GW*0.7); break; }
+    case 'horizon':
+      collectRadius(rm,mc,mr,3); for(const k of rm){ const [c,r]=k.split(',').map(Number); fxSuck(cX(c)+T/2,cY(r)+T/2,mx,my); const cl=GS.board[r][c]; if(cl&&cl.t===BH) cl.bank=(cl.bank||0)*2+200; }
+      fxImplode(mx,my); boom(2.2); GS.timeScale=0.15; break;
+    case 'prism': {
+      const cols=['#ff3b3b','#ff9d2a','#ffe83a','#5dff3a','#3ad7ff','#5a6bff','#c26bff','#ff4fd8'];
+      [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]].forEach(([dc,dr],i)=>{ lineCells(rm,mc,mr,dc,dr); fxLaser(mx,my,mx+dc*GW*1.2,my+dr*GW*1.2,cols[i]); });
+      sfx.laser(); break; }
+    case 'tidal':
+      for(let r=Math.max(0,ROWS-3);r<ROWS;r++) for(let c=0;c<COLS;c++) if(GS.board[r][c]) rm.add(key(c,r));
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]&&GS.board[r][c].t===HUSK) rm.add(key(c,r));
+      fxWave(ROWS-3); boom(1.6); break;
+    case 'overload': {
+      const col=ECOL[A.t];
+      for(let d=-1;d<=1;d++){ const rr=clamp(mr+d,0,ROWS-1), cc=clamp(mc+d,0,COLS-1); lineCells(rm,0,rr,1,0); lineCells(rm,cc,0,0,1);
+        fxLaser(GX,cY(rr)+T/2,GX+GW,cY(rr)+T/2,col); fxLaser(cX(cc)+T/2,GY,cX(cc)+T/2,GY+GH,col); }
+      boom(1.8); break; }
+    case 'prismatic': {
+      const el = A.t===S ? B.t : A.t; const tiles=[];
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=GS.board[r][c]; if(cl&&cl.t===el){ tiles.push([c,r]); rm.add(key(c,r)); } }
+      tiles.forEach(([c,r],i)=>{ fxLaser(mx,my,cX(c)+T/2,cY(r)+T/2,['#ff3b3b','#ffe83a','#5dff3a','#3ad7ff','#c26bff'][i%5]); });
+      for(const [c,r] of tiles.slice(0,6)) applyMegaTileEffect({c,r,t:el},rm);
+      boom(2.4); GS.shake=24; GS.shakeSpecial=true; payMult=4; break; }
+    case 'bigbang':
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(GS.board[r][c]) rm.add(key(c,r));
+      fxRing(mx,my,'#ffffff',GW); fxRing(mx,my,'#ffd21f',GW*0.7); flashScreen('#ffffff',1); boom(2.6); GS.shake=26; GS.shakeSpecial=true; GS.hyperPending=true; payMult=5; break;
+  }
+  // payout + opruimen
+  let earned=0; let n=0;
+  for(const k of rm){ const [c,r]=k.split(',').map(Number); const cl=GS.board[r][c]; if(!cl) continue;
+    if(isHazard(cl)){ harvestHazard(c,r,cl); GS.board[r][c]=null; continue; }
+    earned+=ELEM_VAL[cl.t]*(cl.gold?goldMult():1); n++; burst(cX(c)+T/2,cY(r)+T/2,cl.t===S?'#ffffff':ECOL[cl.t],7); GS.board[r][c]=null; }
+  if(earned>0) flyCoins(mx,my,earned*payMult,'#ffd21f');
+  GS.timeScale=Math.min(GS.timeScale,0.25); GS.shake=Math.max(GS.shake,14); hitstop(type==='bigbang'?0.2:0.11); boom(1.4);
+  fxRing(mx,my,F_.col,T*2.4); bgShock(F_.col); bgShock('#ffffff');
+  addText(mx,my-10,'✦ '+F_.n.toUpperCase()+' ✦',F_.col,46);
+  if(!fusionsFound.has(type)){ fusionsFound.add(type); store.set('rf_fusions',JSON.stringify([...fusionsFound]));
+    showPopup('✨ NEW FUSION · '+fusionsFound.size+'/'+FUSIONS.length, F_.n+' ('+F_.pair+') — '+F_.d, F_.col); sfx.unlock(); }
+  return true;
 }
 function checkTouchedMegaCombo(){
   const touched=GS.touchedMegaCell; GS.touchedMegaCell=null;
@@ -1672,7 +1823,7 @@ function startResolve(isSlide){
       for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) {
           if (GS.board[r][c] && GS.board[r][c].t === 6) GS.board[r][c].dormant = false;
       }
-      if(checkTouchedMegaCombo()){ gravity(); GS.state=STATES.FALL; return; }
+      if(checkFusion()){ gravity(); GS.state=STATES.FALL; return; }
   }
   GS.state=STATES.RESOLVE; GS.stepDelay=.25;
 }
@@ -1752,6 +1903,12 @@ function emitEnergyLeak(x,y){
     p.x=x+(Math.random()-.5)*T*.4; p.y=y+(Math.random()-.5)*T*.4; p.vx=Math.cos(a)*v; p.vy=Math.sin(a)*v-20; p.col=col; p.life=.25+Math.random()*.25; p.t=0; p.s=1.5+Math.random()*2.5; p.streak=false;
   }
 }
+function fxChain(pts,col){ const f=FX_POOL.acquire(); if(!f) return; f.k='chain'; f.pts=pts; f.col=col; f.t=0; f.d=0.7; }
+function fxDrop(x,y,col,delay){ const f=FX_POOL.acquire(); if(!f) return; f.k='drop'; f.x=x; f.y=y; f.col=col; f.t=-(delay||0); f.d=0.35; }
+function fxWave(row){ const f=FX_POOL.acquire(); if(!f) return; f.k='wave'; f.y0=cY(Math.max(0,row)); f.y1=GY+GH; f.t=0; f.d=0.7; }
+function fxImplode(x,y){ const f=FX_POOL.acquire(); if(!f) return; f.k='implode'; f.x=x; f.y=y; f.t=0; f.d=0.8; }
+function fxGeyser(x,y,delay){ setTimeout(()=>{ for(let i=0;i<16;i++){ const p=PART_POOL.acquire(); if(!p) return; p.x=x+(Math.random()-.5)*T*0.6; p.y=y; p.vx=(Math.random()-.5)*80; p.vy=-500-Math.random()*500; p.col=i%3?'#e8fbff':'#7df9ff'; p.life=.6+Math.random()*.4; p.t=0; p.s=5+Math.random()*7; p.streak=i%2===0; } fxCloud(x,y-T,'#ffffff'); }, (delay||0)*1000); }
+function fxOrb(x,y){ const f=FX_POOL.acquire(); if(!f) return; f.k='orb'; f.x0=x; f.y0=y; f.t=-Math.random()*0.12; f.d=0.55; }
 function fxLaser(x1,y1,x2,y2,col){ const f=FX_POOL.acquire(); if(!f) return; f.k='laser'; f.x1=x1;f.y1=y1;f.x2=x2;f.y2=y2;f.col=col;f.t=0;f.d=.3; }
 function fxRing(x,y,col,r){ const f=FX_POOL.acquire(); if(!f) return; f.k='ring'; f.x=x;f.y=y;f.col=col;f.r=r;f.t=0;f.d=.45; }
 function fxCloud(x,y,col){ const f=FX_POOL.acquire(); if(f){ f.k='cloud'; f.x=x;f.y=y;f.col=col;f.t=0;f.d=.8; } burst(x,y,col,20); }
@@ -1878,6 +2035,7 @@ function onUp(e){
     }
   }
   if(shift!==0&&!GS.echoActive){ GS.moveCount++; GS.lastSwipe={axis:GS.drag.axis, idx:GS.drag.idx, shift}; }
+  GS.lastSlideLine = shift!==0 ? {axis:GS.drag.axis, idx:GS.drag.idx} : null;
   const touchCell=(shift!==0&&GS.drag.sr!=null&&GS.drag.sc!=null&&inGrid(GS.drag.sc,GS.drag.sr))?GS.board[GS.drag.sr][GS.drag.sc]:null;
   GS.touchedMegaCell=(touchCell&&touchCell.mega)?touchCell:null;
   if(GS.drag.axis==='row') rotateRow(GS.drag.idx,shift); else rotateCol(GS.drag.idx,shift);
@@ -1943,7 +2101,7 @@ function update(realDt){
       const f=FX_POOL.items[i]; if(!f.active) continue;
       f.t+=dt;
       if(f.k==='suck') { let pct = f.t / f.d; f.cx = f.x1 + (f.x2 - f.x1) * pct; f.cy = f.y1 + (f.y2 - f.y1) * pct; }
-      if(f.t>=f.d) FX_POOL.release(f);
+      if(f.t>=f.d){ if(f.k==='orb') GS.energyPulse=1; FX_POOL.release(f); }
   }
 
   for(let i=0;i<COIN_POOL.items.length;i++){
@@ -2006,6 +2164,7 @@ function drawTileFx(cell,x,y,pulse){
   if(cell.fall>0){ const st=Math.min(0.12,cell.fall/T*0.035); drawTileXf(cell,x,y,pulse,1-st*0.6,1+st,false); return; }
   drawTileAt(cell,x,y,pulse);
 }
+function drawFrozen(x,y){ ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle='#bfefff'; if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x+8,y+8,T-16,T-16,12); ctx.fill(); } ctx.globalAlpha=.9; ctx.strokeStyle='#e6fbff'; ctx.lineWidth=2; if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x+8,y+8,T-16,T-16,12); ctx.stroke(); } ctx.restore(); }
 function drawTileAt(cell,x,y,pulse){
   const spr = cell.mega? SPR.mega[cell.t] : SPR.base[cell.t];
   ctx.save(); ctx.globalAlpha=0.32; ctx.fillStyle='#000';
@@ -2051,8 +2210,35 @@ function drawTileAt(cell,x,y,pulse){
     ctx.restore();
   }
   if(cell.t===PZ){
-    ctx.save(); ctx.strokeStyle='#ff2d78'; ctx.lineWidth=2; ctx.globalAlpha=.35+.35*Math.sin(pulse*7);
-    ctx.beginPath(); ctx.arc(x+T/2,y+T/2,T*.44,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    const wob=1+0.08*Math.sin(pulse*6+x*0.1);
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.25+.2*Math.sin(pulse*5);
+    const gs=T*1.2*wob; ctx.drawImage(glowSprite('#c6ff3d'),x+T/2-gs/2,y+T/2-gs/2,gs,gs); ctx.restore();
+    ctx.save(); ctx.strokeStyle='#ff2d78'; ctx.lineWidth=2; ctx.globalAlpha=.4+.35*Math.sin(pulse*7);
+    ctx.beginPath(); ctx.arc(x+T/2,y+T/2,T*.44*wob,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    if(cell.frozen>0) drawFrozen(x,y);
+  }
+  if(cell.t===BH){
+    const m=cell.mass||1; const rad=T*(0.16+0.035*m); const cx=x+T/2, cy=y+T/2; const spin=pulse*(1.5+m*0.35);
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const halo=T*(0.6+0.09*m); ctx.globalAlpha=0.35+0.05*m; ctx.drawImage(glowSprite(m>=6?'#ff4a2a':'#b48cff'),cx-halo,cy-halo,halo*2,halo*2);
+    for(let i=0;i<3;i++){ ctx.globalAlpha=0.7-0.18*i; ctx.strokeStyle=i===0?'#ffd27a':(m>=6?'#ff4a2a':'#b48cff'); ctx.lineWidth=3-i*0.7;
+      ctx.beginPath(); ctx.ellipse(cx,cy,rad*(1.5+i*0.35),rad*(0.55+i*0.15),spin*0.3+i,spin+i*2,spin+i*2+4.2); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(255,220,160,.8)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.stroke();
+    ctx.save(); ctx.font='bold 15px '+UI_FONT; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=m>=6?'#ff8a6a':'#e9dcff'; ctx.fillText(m,cx,cy+1); ctx.restore();
+  }
+  if(cell.t===CORE){
+    const tm=Math.max(0,cell.timer||0), mx=cell.timerMax||6; const cx=x+T/2, cy=y+T/2; const urgent=tm<=2;
+    const beat=urgent? (0.5+0.5*Math.sin(pulse*14)) : (0.5+0.5*Math.sin(pulse*4));
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=0.25+0.35*beat*(urgent?1.4:1);
+    const gs=T*1.3; ctx.drawImage(glowSprite(urgent?'#ff3020':'#ff8a00'),cx-gs/2,cy-gs/2,gs,gs); ctx.restore();
+    ctx.save(); ctx.lineWidth=6; ctx.lineCap='round';
+    for(let i=0;i<mx;i++){ const a0=-Math.PI/2+i*(Math.PI*2/mx)+0.12, a1=a0+(Math.PI*2/mx)-0.24;
+      ctx.strokeStyle= i<tm ? (urgent?'#ff3020':'#ff8a00') : 'rgba(255,138,0,.15)'; ctx.beginPath(); ctx.arc(cx,cy,T*0.34,a0,a1); ctx.stroke(); }
+    ctx.fillStyle=urgent?'#ff5a3a':'#ffd29a'; ctx.font='bold 30px '+UI_FONT; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(tm,cx,cy+2);
+    ctx.restore();
+    if(cell.frozen>0) drawFrozen(x,y);
   }
   // Subtiele, per-element "levende" uitstraling — puur decoratief, geen gameplay-effect.
   // seed = per-tegelpositie faseverschil, zodat gelijksoortige tegels niet in lockstep pulseren.
@@ -2238,6 +2424,22 @@ function render(now){
     else if(f.k==='ring'){ ctx.strokeStyle=f.col; ctx.globalAlpha=a; ctx.lineWidth=6*a+1; ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(f.t/f.d)+8,0,Math.PI*2); ctx.stroke(); }
     else if(f.k==='cloud'){ ctx.fillStyle=f.col; ctx.globalAlpha=a*.3; for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(f.x+Math.sin(i*2.1)*40*(f.t/f.d+0.3), f.y+Math.cos(i*1.7)*30, 45+f.t*90,0,Math.PI*2); ctx.fill(); } }
     else if(f.k==='suck') { ctx.fillStyle='#c26bff'; ctx.globalAlpha=a; ctx.beginPath(); ctx.arc(f.cx, f.cy, 6, 0, Math.PI*2); ctx.fill(); }
+    else if(f.k==='chain'){ const n=f.pts.length; const shown=Math.min(n,1+Math.floor((f.t/f.d)*n*1.6)); ctx.strokeStyle=f.col; ctx.globalAlpha=Math.min(1,a*1.5);
+      for(let pass=0;pass<2;pass++){ ctx.lineWidth=pass?2:7; ctx.strokeStyle=pass?'#ffffff':f.col; ctx.beginPath();
+        for(let i=0;i<shown;i++){ const [px,py]=f.pts[i]; if(i===0){ ctx.moveTo(px,py); continue; } const [qx,qy]=f.pts[i-1];
+          for(let s2=1;s2<=4;s2++){ const u=s2/4; ctx.lineTo(qx+(px-qx)*u+(s2<4?(Math.random()-.5)*26:0), qy+(py-qy)*u+(s2<4?(Math.random()-.5)*26:0)); } }
+        ctx.stroke(); } }
+    else if(f.k==='drop'){ if(f.t<0) continue; const u=clamp(f.t/f.d,0,1); const y=GY-60+(f.y-GY+60)*easeOutExpo(u*0.9);
+      ctx.globalAlpha=1-u*0.3; ctx.strokeStyle=f.col; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(f.x,y-60); ctx.lineTo(f.x,y); ctx.stroke(); ctx.drawImage(glowSprite(f.col),f.x-22,y-22,44,44); }
+    else if(f.k==='wave'){ const u=f.t/f.d; const wx=GX-T+u*(GW+2*T); const gr=ctx.createLinearGradient(wx-T*2,0,wx+T*0.5,0);
+      gr.addColorStop(0,'rgba(79,123,255,0)'); gr.addColorStop(0.8,'rgba(79,160,255,.75)'); gr.addColorStop(1,'rgba(220,240,255,.95)');
+      ctx.globalAlpha=a; ctx.fillStyle=gr; ctx.beginPath(); ctx.moveTo(wx-T*2,f.y1); for(let yy=f.y1; yy>=f.y0-20; yy-=12){ ctx.lineTo(wx+Math.sin(yy*0.05+f.t*20)*14, yy); } ctx.lineTo(wx-T*2,f.y0-20); ctx.closePath(); ctx.fill(); }
+    else if(f.k==='implode'){ const u=f.t/f.d; const r=T*2.6*(u<0.6? (1-u/0.6) : 0.15+ (u-0.6)*2); ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=0.85*a; ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(f.x,f.y,Math.max(4,r),0,Math.PI*2); ctx.fill();
+      ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='#b48cff'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(f.x,f.y,Math.max(4,r)+4,0,Math.PI*2); ctx.stroke(); }
+    else if(f.k==='orb'){ if(f.t<0) continue; const u=clamp(f.t/f.d,0,1); const EMx=L.energy.horiz? L.energy.x+L.energy.w*clamp(GS.energy/ENERGY_MAX,0.05,1) : L.energy.x+L.energy.w/2;
+      const EMy=L.energy.horiz? L.energy.y+L.energy.h/2 : L.energy.y+L.energy.h*(1-clamp(GS.energy/ENERGY_MAX,0,0.95));
+      const cxp=(f.x0+EMx)/2+(L.energy.horiz?0:120), cyp=Math.min(f.y0,EMy)-140; const iu=1-u; const ox=iu*iu*f.x0+2*iu*u*cxp+u*u*EMx, oy=iu*iu*f.y0+2*iu*u*cyp+u*u*EMy;
+      ctx.globalAlpha=1; ctx.drawImage(glowSprite('#7df9ff'),ox-14,oy-14,28,28); }
   }
   for(const p of PART_POOL.items){ if(!p.active) continue; const k=1-p.t/p.life; ctx.globalAlpha=k;
     if(p.streak){ ctx.strokeStyle=p.col; ctx.lineWidth=Math.max(1,p.s*0.45); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(p.x-p.vx*0.045,p.y-p.vy*0.045); ctx.lineTo(p.x,p.y); ctx.stroke(); }
@@ -2353,15 +2555,17 @@ function render(now){
   ctx.fillStyle = 'rgba(6,18,26,.92)'; ctx.fillRect(EM.x, EM.y, EM.w, EM.h);
   const eGrad = meterGrad(EM);
   if (eLow) { eGrad.addColorStop(0, '#ff2200'); eGrad.addColorStop(1, '#ff7a1f'); } else { eGrad.addColorStop(0, '#0077aa'); eGrad.addColorStop(0.5, '#00cfff'); eGrad.addColorStop(1, '#7df9ff'); }
-  ctx.globalAlpha = blink; meterFill(EM, eFrac, eGrad); ctx.globalAlpha = 1;
-  meterTicks(EM, ENERGY_MAX);
+  const calm = eFrac>0.5 ? 0.6 : 1; GS.energyPulse=Math.max(0,(GS.energyPulse||0)-0.05);
+  ctx.globalAlpha = blink*calm; meterFill(EM, eFrac, eGrad); ctx.globalAlpha = 1;
+  if(GS.energyPulse>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=GS.energyPulse*0.6; ctx.fillStyle='#7df9ff'; ctx.fillRect(EM.x,EM.y,EM.w,EM.h); ctx.restore(); }
+  meterTicks(EM, 10);
   ctx.globalAlpha = blink; ctx.strokeStyle = eLow ? '#ff4a2a' : '#00cfff'; ctx.lineWidth = 2; ctx.strokeRect(EM.x, EM.y, EM.w, EM.h); ctx.globalAlpha = 1;
   const eCritical = eFrac <= 0.15 && !GS.deadlockActive;
   if(eCritical){ const cpulse = .35 + .65 * Math.abs(Math.sin(pulse * 8)); ctx.strokeStyle = `rgba(255,50,30,${cpulse})`; ctx.lineWidth = 3; ctx.strokeRect(EM.x - 5, EM.y - 5, EM.w + 10, EM.h + 10); }
   ctx.textAlign = 'center'; ctx.textBaseline='middle';
   if(EM.horiz){
-    ctx.font = 'bold 22px Orbitron,Arial'; ctx.fillStyle = '#ffffff'; ctx.textAlign='left';
-    ctx.lineWidth=5; ctx.strokeStyle='rgba(0,0,0,.7)'; const et='⚡ '+Math.round(GS.energy)+' / '+ENERGY_MAX;
+    ctx.font = 'bold 16px Orbitron,Arial'; ctx.fillStyle = '#ffffff'; ctx.textAlign='left';
+    ctx.lineWidth=4; ctx.strokeStyle='rgba(0,0,0,.7)'; const et='⚡ '+Math.round(GS.energy)+' / '+ENERGY_MAX;
     ctx.strokeText(et, EM.x+12, EM.y+EM.h/2+1); ctx.fillText(et, EM.x+12, EM.y+EM.h/2+1);
   } else { ctx.font = 'bold 24px Orbitron,Arial'; ctx.fillStyle = eLow ? '#ff8a6a' : '#7df9ff'; ctx.fillText('⚡', EM.x + EM.w / 2, EM.y + EM.h + 26); }
   ctx.textBaseline='alphabetic';
@@ -2370,7 +2574,7 @@ function render(now){
     const movesLeft=Math.floor(maxPaidDistance(Math.round(GS.energy))); const warnPulse=.5+.5*Math.sin(pulse*6);
     ctx.save(); ctx.font='bold 16px Orbitron,Arial'; ctx.fillStyle=eCritical?`rgba(255,60,30,${warnPulse})`:`rgba(255,160,80,${.7+.3*warnPulse})`;
     const wt=movesLeft<=1?'⚠ CRITICAL':'⚠ LOW';
-    if(EM.horiz){ ctx.textAlign='right'; ctx.fillText(wt, EM.x+EM.w-12, EM.y+EM.h/2+6); } else { ctx.textAlign='center'; ctx.fillText(wt, EM.x+EM.w/2, EM.y-12); }
+    if(EM.horiz){ ctx.textAlign='right'; ctx.fillText(wt, EM.x+EM.w-10, EM.y+EM.h/2+6); } else { ctx.textAlign='center'; ctx.fillText(wt, EM.x+EM.w/2, EM.y-12); }
     ctx.restore();
   }
   {
@@ -2386,11 +2590,11 @@ function render(now){
   ctx.fillStyle = 'rgba(6,18,26,.92)'; ctx.fillRect(MM.x, MM.y, MM.w, MM.h);
   const mGrad = meterGrad(MM); mGrad.addColorStop(0, '#7a3fae'); mGrad.addColorStop(HYPER_MIN_CHAIN / JACKPOT_CASCADE, '#c26bff'); mGrad.addColorStop(1, mJackpotZone ? '#ff2d78' : '#ffd21f');
   ctx.globalAlpha = mBlink; meterFill(MM, mFrac, mGrad); ctx.globalAlpha = 1;
-  meterTicks(MM, JACKPOT_CASCADE); meterMark(MM, HYPER_MIN_CHAIN / JACKPOT_CASCADE, '#ffd21f');
+  meterTicks(MM, 0); meterMark(MM, HYPER_MIN_CHAIN / JACKPOT_CASCADE, '#ffd21f');
   ctx.globalAlpha = mBlink; ctx.strokeStyle = mJackpotZone ? '#ff2d78' : (mHyperZone ? '#ffd21f' : '#c26bff'); ctx.lineWidth = 2; ctx.strokeRect(MM.x, MM.y, MM.w, MM.h); ctx.globalAlpha = 1;
   ctx.font = 'bold 16px Orbitron,Arial'; ctx.fillStyle = mJackpotZone ? '#ff5599' : (mHyperZone ? '#ffd21f' : '#c26bff');
   const mLabel = mChain >= 2 ? ('×' + cascadeMultiplier(mChain).toLocaleString('en-US')) : '🔥';
-  if(MM.horiz){ ctx.textAlign='right'; ctx.font='bold 22px Orbitron,Arial'; ctx.fillText('CASCADE '+mLabel, MM.x+MM.w, MM.y+MM.h+30); }
+  if(MM.horiz){ ctx.textAlign='right'; ctx.font='bold 20px Orbitron,Arial'; ctx.fillText('CASCADE '+mLabel, MM.x+MM.w, MM.y+MM.h+28); }
   else { ctx.textAlign = 'center'; ctx.fillText(mLabel, MM.x + MM.w / 2, MM.y + MM.h + 26); }
 
   { const rm=rewardMult(); ctx.save(); ctx.font='bold 20px Orbitron,Arial'; ctx.fillStyle='#ffd21f'; ctx.shadowColor='#ffb300'; ctx.shadowBlur=10;
@@ -2482,7 +2686,7 @@ function render(now){
   ctx.restore();
 }
 
-if(location.hash==='#debug'){ window.__rf={GS, checkLevelUp, showGameOver, flyCoins}; }
+if(location.hash==='#debug'){ window.__rf={GS, checkLevelUp, showGameOver, flyCoins, makeHazard, trySpawnHazard, applyTurnStatuses, startResolve, get COLS(){return COLS;}, get ROWS(){return ROWS;}, FUSIONS}; }
 function loop(now){
   const dt=Math.min((now-last)/1000,.05); last=now;
   if(GS.hitstop>0){ GS.hitstop-=dt; }
@@ -2501,45 +2705,28 @@ function buildElementGlossary(){
   const ICON=30; const tileImg=(spr,size)=>`<img src="${tileSpriteDataURL(spr,size)}" style="width:${size}px;height:${size}px;vertical-align:middle;margin-right:8px;border-radius:4px;" />`;
   const entries=[
     { spr:SPR.base[F], name:'Fire', col:ECOL[F], desc:'Base element. Solid, reliable points.' },
-    { spr:SPR.base[I], name:'Ice', col:ECOL[I], desc:'Base element. One huge Ice match (6+) triggers Blizzard.' },
+    { spr:SPR.base[I], name:'Ice', col:ECOL[I], desc:'Base element. From level 5, Ice left unmatched too long melts into Water.' },
     { spr:SPR.base[G], name:'Poison', col:ECOL[G], desc:'Base element, worth more than Fire or Ice.' },
     { spr:SPR.base[E], name:'Electric', col:ECOL[E], desc:'Low points — but every Electric tile you match refills your energy.' },
     { spr:SPR.base[V], name:'Void', col:ECOL[V], desc:'High points — but Void drains energy on the initial match. Free during cascades!' },
     { spr:SPR.base[C], name:'Crystal', col:ECOL[C], desc:'Rarest element, biggest payout. Melts downward, turning touching tiles into Void.' },
-    { spr:SPR.base[6], name:'Star', col:ECOL[6], desc:'A dormant Star spawns during a large cascade (combo 7+). It wakes up on your next move as a Wildcard! Match it with anything for explosive cosmic effects.' },
+    { spr:SPR.base[6], name:'Star', col:ECOL[6], desc:'Created by five in a row (or a 7× cascade). Wakes up on your next move as a Wildcard. Slide it next to a Charged tile or another Star to fuse.' },
     { spr:SPR.base[7], name:'Water', col:ECOL[7], desc:'Appears when unmatched Ice melts after several turns. Boils away instantly next to Fire — no big match needed.' },
-    { spr:SPR.base[8], name:'Parasite', col:ECOL[8], desc:'Cannot be matched and spreads to a neighbour every couple of turns. Only an elemental explosion destroys it.' },
+    { spr:SPR.base[8], name:'Virus', col:ECOL[8], desc:'Risk element. Crawls and leaves Husks. Purge it with a match next to it for a big payout.' },
   ];
   let html=''; for(const en of entries){ html+=`<div class="eg"><div class="nm" style="color:${en.col};">${tileImg(en.spr,ICON)}${en.name}</div><div class="ds">${en.desc}</div></div>`; }
-  html+=`<div class="eg wide"><div class="nm" style="color:#ffffff;">${tileImg(SPR.mega[F],ICON)}⬟ Mega tile</div><div class="ds">Formed from a 2×2 block of one element. Match it in a line of 3+ to unleash a powerful elemental blast.</div></div>`;
+  html+=`<div class="eg wide"><div class="nm" style="color:#ffffff;">${tileImg(SPR.mega[F],ICON)}⚡ Charged tile</div><div class="ds">Created by matching 4 (or forming a 2×2 block). Match it to release its element’s blast — or slide it next to another Charged tile or Star to FUSE.</div></div>`;
   el.innerHTML=html;
 }
 
 function buildRecipeList(){
-  buildElementGlossary(); const el=document.getElementById('recipeList'); el.innerHTML=''; const lvl=currentLevel();
-  if(!recipeIconCache){
-    const ICON=34, MINI=16; const tileImg=(spr,size)=>`<img src="${tileSpriteDataURL(spr,size)}" style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:4px;" />`;
-    const cluster=(spr)=>`<span style="display:inline-flex;gap:1px;">${tileImg(spr,MINI)}${tileImg(spr,MINI)}${tileImg(spr,MINI)}</span>`;
-    const badge6=`<span title="one of the two needs 6+" style="background:#ffd21f;color:#1a1400;font-size:10px;font-weight:bold;border-radius:8px;padding:1px 5px;margin:0 4px;">6+</span>`;
-    const plus=`<span style="color:#7df9ff;margin:0 2px;font-weight:bold;">+</span>`;
-    recipeIconCache = {
-      1: cluster(SPR.base[F])+plus+cluster(SPR.base[I])+badge6,
-      2: cluster(SPR.base[E])+plus+cluster(SPR.base[G])+badge6,
-      3: cluster(SPR.base[F])+plus+cluster(SPR.base[E])+badge6,
-      6: cluster(SPR.base[I])+plus+cluster(SPR.base[E])+badge6,
-      5: cluster(SPR.base[F])+plus+cluster(SPR.base[G])+badge6,
-      8: cluster(SPR.base[I])+tileImg(SPR.base[I],MINI)+tileImg(SPR.base[I],MINI)+badge6+`<span style="color:#9ab;font-size:11px;">one huge Ice match</span>`,
-      17: tileImg(SPR.mega[V],ICON)+`<span style="color:#9ab;margin-left:8px;font-size:12px;">next to any match</span>`,
-      14: [F,I,G,E].map(t=>tileImg(SPR.base[t],MINI)).join('')+`<span style="color:#9ab;margin-left:8px;font-size:11px;">4+ big matches (6+), one chain</span>`
-    };
-  }
-
-  for(const r of RECIPES){
-    const on=GS.unlocked.has(r.id); const needLvl=RECIPE_UNLOCK_LEVEL[r.id]; const reachable=lvl>=needLvl;
-    const d=document.createElement('div'); d.className='rc '+(on?'on':'off');
-    let desc; if(on) desc=r.d; else if(!reachable) desc='🔒 Unlocks at level '+needLvl+'.'; else desc='Discover this elemental reaction in the game.';
-    const vis = on ? `<div style="margin-top:6px; margin-bottom:4px; display:flex; align-items:center;">${recipeIconCache[r.id]}</div>` : '';
-    d.innerHTML='<div class="nm">'+(on?r.n:'??? — locked')+'</div>'+vis+'<div class="ds">'+desc+'</div>'; el.appendChild(d);
+  buildElementGlossary(); const el=document.getElementById('recipeList'); el.innerHTML='';
+  const t=document.getElementById('codexTitle'); if(t) t.textContent='✨ Fusion Codex · '+fusionsFound.size+'/'+FUSIONS.length+' discovered';
+  for(const f of FUSIONS){
+    const on=fusionsFound.has(f.id); const d=document.createElement('div'); d.className='rc '+(on?'on':'off');
+    d.innerHTML='<div class="nm" style="'+(on?'color:'+f.col+';text-shadow:0 0 8px '+f.col+';':'')+'">'+(on?'✦ '+f.n:'??? — undiscovered')+'</div>'+
+      '<div class="ds"><b style="color:#cde">'+f.pair+'</b>'+(on?' — '+f.d:'')+'</div>';
+    el.appendChild(d);
   }
 }
 
